@@ -1385,9 +1385,13 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
         PacketPtr copyOwPkt = new Packet(orbEntry->owPkt,
                                              false,
                                              orbEntry->owPkt->isRead());
+        //Update_752: If response/ACK is not required, only access would suffice
+        if(pkt->needsResponse()) {
 
         accessAndRespond(orbEntry->owPkt,
                          frontendLatency + backendLatency);
+        }
+        else access(pkt);
 
         ORB.at(copyOwPkt->getAddr()) = new reqBufferEntry(
                                             orbEntry->validEntry,
