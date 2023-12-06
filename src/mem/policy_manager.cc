@@ -29,8 +29,11 @@
 #include "mem/policy_manager.hh"
 
 #include "base/trace.hh"
+#include "enums/ByteOrder.hh"
 #include "debug/PolicyManager.hh"
+#include "debug/Project752Mem.hh"
 #include "debug/Drain.hh"
+#include "mem/packet_access.hh"
 #include "sim/sim_exit.hh"
 #include "sim/system.hh"
 
@@ -39,6 +42,45 @@ namespace gem5
 
 namespace memory
 {
+
+#define BUF_SIZE 1024
+
+bool snprintf_whole_packet(PacketPtr packet, char * buf, size_t buf_size) {
+    if (packet == NULL) {
+        return false;
+    }
+
+    DPRINTF(Project752Mem, "snprintf_whole_packet: data_size=%u\n", packet->getSize());
+    if (packet->req == nullptr) {
+        DPRINTF(Project752Mem, "snprintf_whole_packet: packet->req is null\n");
+    }
+
+    // if (!flags.isSet(STATIC_DATA|DYNAMIC_DATA) || packet-) {
+    // }
+
+    DPRINTF(Project752Mem, "snprintf_whole_packet: %s\n", packet->print());
+    if (packet->isWriteback()) {
+        DPRINTF(Project752Mem, "snprintf_whole_packet: isWriteback, returning\n");
+        return false;
+    }
+
+    if (!packet->hasData() && !packet->hasRespData()) {
+        return false;
+    }
+
+    size_t packetSize = packet->getSize();
+    int offset = 0;
+    offset += snprintf(buf + offset, buf_size - offset, "0x");
+    uint8_t * ptr = packet->getPtr<uint8_t>();
+    for (int i = 0; i < packetSize; i++) {
+        uint8_t data = *ptr;
+        offset += snprintf(buf + offset, buf_size - offset, "%02x", data);
+        ptr++;
+    }
+    offset += snprintf(buf + offset, buf_size - offset, "\n");
+    buf[offset] = '\0';
+    return true;
+}
 
 PolicyManager::PolicyManager(const PolicyManagerParams &p):
     AbstractMemory(p),
@@ -423,6 +465,14 @@ PolicyManager::processLocMemWriteEvent()
     assert(orbEntry->state == locMemWrite);
     assert(!orbEntry->issued);
 
+    char buf[BUF_SIZE];
+    size_t buf_size = sizeof(buf);
+    size_t packetSize = orbEntry->owPkt->getSize();
+    if (snprintf_whole_packet(orbEntry->owPkt, buf, buf_size)) {
+        DPRINTF(Project752Mem, "processLocMemWriteEvent: request %s addr %#x, data_size=%u, %s\n",
+                orbEntry->owPkt->cmdString(), orbEntry->owPkt->getAddr(), packetSize, buf);
+    }
+
     PacketPtr wrLocMemPkt = getPacket(pktLocMemWrite.front(),
                                    blockSize,
                                    MemCmd::WriteReq);
@@ -481,6 +531,15 @@ PolicyManager::processFarMemReadEvent()
 void
 PolicyManager::processFarMemWriteEvent()
 {
+    PacketPtr packet = pktFarMemWrite.front().second;
+    size_t packetSize = packet->getSize();
+    char buf[BUF_SIZE];
+    size_t buf_size = sizeof(buf);
+    if (snprintf_whole_packet(packet, buf, buf_size)) {
+        DPRINTF(Project752Mem, "processFarMemWriteEvent: request %s addr %#x, data_size=%u, %s\n",
+                packet->cmdString(), packet->getAddr(), packetSize, buf);
+    }
+
     PacketPtr wrFarMemPkt = getPacket(pktFarMemWrite.front().second->getAddr(),
                                       blockSize,
                                       MemCmd::WriteReq);
@@ -526,6 +585,14 @@ PolicyManager::locMemRecvTimingResp(PacketPtr pkt)
 
     if (pkt->isRead()) {
         assert(orbEntry->state == waitingLocMemReadResp);
+
+        size_t packetSize = orbEntry->owPkt->getSize();
+        char buf[BUF_SIZE];
+        size_t buf_size = sizeof(buf);
+        if (snprintf_whole_packet(orbEntry->owPkt, buf, buf_size)) {
+            DPRINTF(Project752Mem, "locMemRecvTimingResp: request %s addr %#x, data_size=%u, %s\n",
+                    orbEntry->owPkt->cmdString(), orbEntry->owPkt->getAddr(), packetSize, buf);
+        }
 
         if (orbEntry->handleDirtyLine && 
             (orbEntry->pol == enums::CascadeLakeNoPartWrs || 
@@ -575,6 +642,14 @@ PolicyManager::farMemRecvTimingResp(PacketPtr pkt)
         orbEntry->owPkt->isRead());
 
         assert(orbEntry->state == waitingFarMemReadResp);
+
+        size_t packetSize = orbEntry->owPkt->getSize();
+        char buf[BUF_SIZE];
+        size_t buf_size = sizeof(buf);
+        if (snprintf_whole_packet(orbEntry->owPkt, buf, buf_size)) {
+            DPRINTF(Project752Mem, "farMemRecvTimingResp: request %s addr %#x, data_size=%u, %s\n",
+                    orbEntry->owPkt->cmdString(), orbEntry->owPkt->getAddr(), packetSize, buf);
+        }
 
         orbEntry->farRdExit = curTick();
 
@@ -1385,13 +1460,16 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
         PacketPtr copyOwPkt = new Packet(orbEntry->owPkt,
                                              false,
                                              orbEntry->owPkt->isRead());
+
         //Update_752: If response/ACK is not required, only access would suffice
         if(pkt->needsResponse()) {
-
-        accessAndRespond(orbEntry->owPkt,
+            accessAndRespond(orbEntry->owPkt,
                          frontendLatency + backendLatency);
         }
-        else access(pkt);
+        else {
+            std::fill_n(pkt->getPtr<uint8_t>(), pkt->getSize(), (uint8_t)0);
+            access(pkt);
+        }
 
         ORB.at(copyOwPkt->getAddr()) = new reqBufferEntry(
                                             orbEntry->validEntry,
@@ -1545,6 +1623,8 @@ void
 PolicyManager::accessAndRespond(PacketPtr pkt, Tick static_latency)
 {
     DPRINTF(PolicyManager, "Responding to Address %d \n", pkt->getAddr());
+    std::fill_n(pkt->getPtr<uint8_t>(), pkt->getSize(), (uint8_t)0);
+    // pkt->setAddr(pkt->getAddr() + 1);
 
     bool needsResponse = pkt->needsResponse();
     // do the actual memory access which also turns the packet into a
@@ -1586,6 +1666,7 @@ PacketPtr
 PolicyManager::getPacket(Addr addr, unsigned size, const MemCmd& cmd,
                    Request::FlagsType flags)
 {
+    
     // Create new request
     RequestPtr req = std::make_shared<Request>(addr, size, flags,
                                                0);

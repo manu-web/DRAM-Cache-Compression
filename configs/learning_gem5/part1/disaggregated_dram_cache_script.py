@@ -56,12 +56,17 @@ from common import SimpleOpts
 
 # Default to running 'hello', use the compiled ISA to find the binary
 # grab the specific path to the binary
-thispath = os.path.dirname(os.path.realpath(__file__))
-default_binary = os.path.join(
-    thispath,
-    "../../../../", #Update as per your system
-    "spectre/spectre.gcc",
-)
+# thispath = os.path.dirname(os.path.realpath(__file__))
+# default_binary = os.path.join(
+#     thispath,
+#     "../../../../", #Update as per your system
+#     # "spectre/spectre.gcc",
+#     "hw3/spec2006/gcc/gcc_base.x86_64_sse /home/cs752/hw3/spec2006/gcc/input/scilab.i -o scilab.o"
+# )
+
+# default_binary = '/home/cs752/spectre/spectre.gcc'
+# default_binary = '/home/cs752/hw3/spec2006/gcc/gcc_base.x86_64_sse'
+default_binary = '/home/cs752/testprog/testprog.gcc'
 
 # Binary to execute
 SimpleOpts.add_option("binary", nargs="?", default=default_binary)
@@ -79,10 +84,11 @@ system.clk_domain.voltage_domain = VoltageDomain()
 
 # Set up the system
 system.mem_mode = "timing"  # Use timing accesses
-system.mem_ranges = [AddrRange("512MB")]  # Create an address range
+system.mem_ranges = [AddrRange("1GiB")]  # Create an address range
 
 # Create a simple CPU
 system.cpu = X86O3CPU()
+system.cpu.max_insts_any_thread=250000000
 
 # Create an L1 instruction and data cache
 system.cpu.icache = L1ICache(args)
@@ -154,7 +160,7 @@ system.workload = SEWorkload.init_compatible(args.binary)
 process = Process()
 # Set the command
 # cmd is a list which begins with the executable (like argv)
-process.cmd = [args.binary]
+process.cmd = [args.binary, '/home/cs752/hw3/spec2006/gcc/input/scilab.i', '-o', 'scilab.o']
 # Set the cpu to use the process as its workload and create thread contexts
 system.cpu.workload = process
 system.cpu.createThreads()
