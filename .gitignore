@@ -32,3 +32,9 @@ configs/example/memcheck.cfg
 configs/dram/lowp_sweep.cfg
 .pyenv
 .vscode
+
+
+*.tar.gz
+*.tz
+benchmarks
+out_dir
