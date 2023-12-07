@@ -1456,6 +1456,44 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
     }
 
     if (pkt->isWrite()) {
+        size_t pkt_size = pkt->getSize();
+        uint8_t * ptr = pkt->getPtr<uint8_t>();
+        int counter = 0;
+        
+        // uint8_t initial_data = *ptr;
+        // ptr++;
+        // if (initial_data >= 'A' && initial_data <= 'Z') {
+        //     for (unsigned int i = 1; i < pkt_size; i++) {
+        //         uint8_t data = *ptr;
+        //         if (data == initial_data) {
+        //             counter++;
+        //         }
+        //         ptr++;
+        //     }
+        // }
+
+        for (unsigned int i = 0; i < pkt_size; i++) {
+            uint8_t data = *ptr;
+            if (data >= 'E' && data <= 'H') {
+                counter++;
+            }
+            ptr++;
+        }
+        
+        char buf[BUF_SIZE];
+        size_t buf_size = sizeof(buf);
+        if (counter > 62) {
+            ptr = pkt->getPtr<uint8_t>();
+            printf("packet: ");
+            for (unsigned int i = 0; i < pkt_size; i++) {
+                uint8_t data = *ptr;
+                printf("%c", data);
+                ptr++;
+            }
+            printf("\n");
+            // snprintf_whole_packet(pkt, buf, buf_size);
+            // printf("packet: %s\n", buf);
+        }
 
         PacketPtr copyOwPkt = new Packet(orbEntry->owPkt,
                                              false,
@@ -1467,7 +1505,7 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
                          frontendLatency + backendLatency);
         }
         else {
-            std::fill_n(pkt->getPtr<uint8_t>(), pkt->getSize(), (uint8_t)0);
+            // std::fill_n(pkt->getPtr<uint8_t>(), pkt->getSize(), (uint8_t)0);
             access(pkt);
         }
 
@@ -1623,7 +1661,7 @@ void
 PolicyManager::accessAndRespond(PacketPtr pkt, Tick static_latency)
 {
     DPRINTF(PolicyManager, "Responding to Address %d \n", pkt->getAddr());
-    std::fill_n(pkt->getPtr<uint8_t>(), pkt->getSize(), (uint8_t)0);
+    // std::fill_n(pkt->getPtr<uint8_t>(), pkt->getSize(), (uint8_t)0);
     // pkt->setAddr(pkt->getAddr() + 1);
 
     bool needsResponse = pkt->needsResponse();

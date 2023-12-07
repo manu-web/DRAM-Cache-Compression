@@ -66,7 +66,7 @@ from common import SimpleOpts
 
 # default_binary = '/home/cs752/spectre/spectre.gcc'
 # default_binary = '/home/cs752/hw3/spec2006/gcc/gcc_base.x86_64_sse'
-default_binary = '/home/cs752/testprog/testprog.gcc'
+default_binary = '/home/cs752/DRAM-Cache-Compression/cs752/testprog/testprog.gcc'
 
 # Binary to execute
 SimpleOpts.add_option("binary", nargs="?", default=default_binary)

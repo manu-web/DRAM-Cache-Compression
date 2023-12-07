@@ -1,10 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 #define CACHE_SIZE 128 * 1024 * 1024 // Size of the cache in bytes
 #define BLOCK_SIZE 64   // Size of each cache block in bytes
 
-#define DEBUG
+// #define DEBUG
 
 #ifdef DEBUG
 #define DEBUG_PRINT(fmt, ...) printf(fmt, ##__VA_ARGS__)
@@ -12,13 +13,17 @@
 #define DEBUG_PRINT(fmt, ...) do {} while (0)
 #endif
 
+void empty_function(char c) {
+  c++;
+  const uint8_t x = 10;
+  c += x;
+}
+
 int main(int argc, char *argv[]) {
   // Allocate a large block of memory
-  size_t mem_size = 2*CACHE_SIZE * BLOCK_SIZE;
+  // size_t mem_size = 2*CACHE_SIZE * BLOCK_SIZE;
+  size_t mem_size = CACHE_SIZE;
   char* memory = (char*)malloc(mem_size);
-
-  // Calculate the number of cache blocks
-  int num_blocks = CACHE_SIZE / BLOCK_SIZE;
 
   // Write to conflicting addresses in the cache
   char* address1 = memory + (0 * CACHE_SIZE); // Address that maps to cache block 0
@@ -41,17 +46,20 @@ int main(int argc, char *argv[]) {
   DEBUG_PRINT("Read '%c' from address %p\n", byte2, readAddress2);
 
 
-  const int iterations = 10;
+  const int iterations = 110000;
   char* offset_memory = memory + (mem_size / 2);
 
   // Write to each address location in the allocated memory
-  for (int i = 0; i < iterations; i++) {
+  for (int i = 0; i < iterations; i+=4) {
     // Calculate the starting address of the cache block
     char* address = memory + i;
 
     // Write to the address
     // *address = (char)((unsigned long long)address % BLOCK_SIZE);
-    *address = 'A';
+    *address = 'E';
+    *(address+1) = 'F';
+    *(address+2) = 'G';
+    *(address+3) = 'H';
 
     // Debugging output to show the write
     // DEBUG_PRINT("Wrote '0x%02x' to address %p\n", (unsigned char)*address, (void*)address);
@@ -79,6 +87,9 @@ int main(int argc, char *argv[]) {
 
     // Debugging output to show the read
     DEBUG_PRINT("Read '0x%02x' from address %p\n", (unsigned char)byte, (void*)address);
+    byte = byte;
+    byte++;
+    empty_function(byte);
   }
 
   for (int i = 0; i < iterations; i++) {
@@ -90,6 +101,9 @@ int main(int argc, char *argv[]) {
 
     // Debugging output to show the read
     DEBUG_PRINT("Read '0x%02x' from address %p\n", (unsigned char)byte, (void*)address);
+    byte = byte;
+    byte++;
+    empty_function(byte);
   }
 
   // Free the allocated memory
