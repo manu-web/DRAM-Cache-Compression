@@ -447,6 +447,14 @@ PolicyManager::processLocMemWriteEvent()
     }*/
 
     if (locReqPort.sendTimingReq(wrLocMemPkt)) {
+        //NS: To determine compressibility, access the data
+        access(orbEntry->owPkt); 
+        
+        //Call compression logic
+
+        //Experimenting with alwaya compressible
+        orbEntry->owPkt->isCompressible = true;
+
         DPRINTF(PolicyManager, "loc mem write is sent : %lld\n", wrLocMemPkt->getAddr());
         orbEntry->state = waitingLocMemWriteResp;
         orbEntry->issued = true;
@@ -1714,6 +1722,8 @@ PolicyManager::resumeConflictingReq(reqBufferEntry* orbEntry)
                 handleRequestorPkt(entry.second);
 
                 ORB.at(confAddr)->arrivalTick = entry.first;
+                
+                DPRINTF(PolicyManager, "Resuming conflict at Addr %d\n", confAddr);
 
                 CRB.erase(e);
 
