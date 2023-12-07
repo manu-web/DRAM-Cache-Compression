@@ -365,6 +365,8 @@ if args.elastic_trace_en:
 for cpu in system.cpu:
     cpu.clk_domain = system.cpu_clk_domain
 
+print(args.dram_cache)
+
 if ObjectList.is_kvm_cpu(CPUClass) or ObjectList.is_kvm_cpu(FutureClass):
     if buildEnv["USE_X86_ISA"]:
         system.kvm_vm = KvmVM()
@@ -383,7 +385,7 @@ if args.simpoint_profile:
         fatal("SimPoint generation not supported with more than one CPUs")
 
 for i in range(np):
-    system.cpu[i].max_insts_any_thread=20000000
+    system.cpu[i].max_insts_any_thread=args.maxinsts
     #if args.smt:
     #    system.cpu[i].workload = multiprocesses
     #elif len(multiprocesses) == 1:
