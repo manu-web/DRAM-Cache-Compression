@@ -385,7 +385,7 @@ if args.simpoint_profile:
         fatal("SimPoint generation not supported with more than one CPUs")
 
 for i in range(np):
-    system.cpu[i].max_insts_any_thread=args.maxinsts
+    #system.cpu[i].max_insts_any_thread=args.maxinsts
     #if args.smt:
     #    system.cpu[i].workload = multiprocesses
     #elif len(multiprocesses) == 1:

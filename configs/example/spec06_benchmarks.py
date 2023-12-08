@@ -24,7 +24,7 @@ gcc.executable = bench_dir + 'gcc' + x86_suffix
 #gcc.cmd = [gcc.executable] + ['expr2.i', '-o', 'expr2.s']
 #gcc.cmd = [gcc.executable] + ['g23.i', '-o', 'g23.s']
 #gcc.cmd = [gcc.executable] + ['s04.i', '-o', 's04.s']
-gcc.cmd = [gcc.executable] + ['scilab.i', '-o', 'scilab.s']
+gcc.cmd = [gcc.executable] + [bench_dir + 'input/scilab.i', '-o', bench_dir + 'scilab.s']
 #gcc.output = out_dir + 'gcc.out'
 
 #437.leslie3d
@@ -56,7 +56,7 @@ omnetpp.executable = bench_dir + 'omnetpp' + x86_suffix
 # TEST CMDS
 #omnetpp.cmd = [omnetpp.executable] + ['omnetpp.ini']
 # REF CMDS
-omnetpp.cmd = [omnetpp.executable] + ['omnetpp.ini']
+omnetpp.cmd = [omnetpp.executable] + [bench_dir + 'omnetpp.ini']
 #omnetpp.output = out_dir + 'omnetpp.out'
 
 #450.soplex
@@ -66,6 +66,6 @@ soplex.executable = bench_dir + 'soplex' + x86_suffix
 # TEST CMDS
 #soplex.cmd = [soplex.executable] + ['-m10000', 'test.mps']
 # REF CMDS
-soplex.cmd = [soplex.executable] + ['-s1', '-e', '-m45000', 'pds-50.mps']
+soplex.cmd = [soplex.executable] + ['-s1', '-e', '-m45000', bench_dir + 'pds-50.mps']
 #soplex.cmd = [soplex.executable] + ['-m3500', 'ref.mps']
 #soplex.output = out_dir + 'soplex.out'
