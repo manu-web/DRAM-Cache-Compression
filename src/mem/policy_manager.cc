@@ -55,6 +55,7 @@ PolicyManager::PolicyManager(const PolicyManagerParams &p):
     crbMaxSize(p.crb_max_size), crbSize(0),
     alwaysHit(p.always_hit), alwaysDirty(p.always_dirty),
     bypassDcache(p.bypass_dcache),
+    ltt_table_size(p.ltt_table_size),
     frontendLatency(p.static_frontend_latency),
     backendLatency(p.static_backend_latency),
     tRP(p.tRP),
@@ -78,6 +79,9 @@ PolicyManager::PolicyManager(const PolicyManagerParams &p):
     tagMetadataStore.resize(dramCacheSize/blockSize);
     tagBaiMetadataStore.resize(dramCacheSize/blockSize);
     for(int i = 0; i < dramCacheSize/blockSize; i++) tagBaiMetadataStore[i].resize(2);
+
+    //Init last time table to false
+    for(int i = 0; i<ltt_table_size; i++) last_time_table[i] = false;
 
 }
 
@@ -115,6 +119,13 @@ PolicyManager::recvAtomicBackdoor(PacketPtr pkt, MemBackdoorPtr &backdoor)
     Tick latency = recvAtomic(pkt);
     getBackdoor(backdoor);
     return latency;
+}
+
+size_t hash_to_table(const std::string& key, size_t table_size) {
+    std::hash<std::string> hash_fn; // Use std::hash for strings, you can change it for other types
+
+    // Apply hash function and take modulo to fit into the table size
+    return hash_fn(key) % table_size;
 }
 
 void
@@ -223,7 +234,8 @@ PolicyManager::recvTimingReq(PacketPtr pkt)
 
     if (pkt->isRead()) {
         //TODO MANU - Add DICE predictor
-        pkt->predCompressible = true; //NS: Predicting always compressible
+        //pkt->predCompressible = true; //NS: Predicting always compressible
+        pkt->predCompressible = read_LTT(pkt->getAddr());
         if (isInWriteQueue.find(pkt->getAddr()) != isInWriteQueue.end()) {
 
             if (!ORB.empty()) {
@@ -1463,6 +1475,11 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
         }
         else access(pkt);
 
+        if(pkt->isCompressible)
+            update_LTT(pkt->getAddr(),true);
+        else 
+            update_LTT(pkt->getAddr(),false);
+
         ORB.at(copyOwPkt->getAddr()) = new reqBufferEntry(
                                             orbEntry->validEntry,
                                             orbEntry->arrivalTick,
@@ -1499,7 +1516,11 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
 
 
         bool hit = currValid && (orbEntry->tagDC == tagMetadataStore.at(norm_idx).tagDC);
-        if(hit) orbEntry->owPkt->latencyFactor = 2;
+        if(hit) {
+            orbEntry->owPkt->latencyFactor = 2;
+            update_LTT(pkt->getAddr(),false);
+        }
+
         DPRINTF(PolicyManager, "NS: For Address %d | Checking normal tag | isHit = %d\n", orbEntry->owPkt->getAddr(), hit);
 
     }
@@ -1921,6 +1942,31 @@ AddrRangeList
 PolicyManager::getAddrRanges()
 {
     return farReqPort.getAddrRanges();
+}
+
+bool PolicyManager::read_LTT(Addr request_addr) {
+
+    // Apply hash function and take modulo to fit into the ltt_table size
+    // TODO : MM : Assumed a page size of 4096 for now, will replace it with page size
+
+    Addr page_number = request_addr>>12;
+    bool ltt_value = last_time_table[ltt_hash_fn(page_number) % ltt_table_size];
+    DPRINTF(PolicyManager, "read_LTT: Addr 0x%x, Page no. 0x%0x, ltt_value %0d \n",request_addr,page_number,ltt_value);
+
+    return ltt_value;
+}
+
+void PolicyManager::update_LTT(Addr request_addr, bool is_read_data_compressible=false) {
+
+    // Apply hash function and take modulo to fit into the ltt_table size
+    // TODO : MM : Assumed a page size of 4096 for now, will replace it with page size
+
+    Addr page_number = request_addr>>12;
+    bool predicted_compressible = last_time_table[ltt_hash_fn(page_number) % ltt_table_size];
+    last_time_table[ltt_hash_fn(page_number) % ltt_table_size] = is_read_data_compressible;
+    DPRINTF(PolicyManager, "update_LTT: Addr 0x%x, Page no. 0x%0x, predicted_compressible %0d, actual_compressible %0d \n",request_addr,page_number,predicted_compressible,is_read_data_compressible);
+
+    return;
 }
 
 Addr
