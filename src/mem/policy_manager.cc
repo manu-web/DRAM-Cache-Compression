@@ -234,8 +234,8 @@ PolicyManager::recvTimingReq(PacketPtr pkt)
 
     if (pkt->isRead()) {
         //TODO MANU - Add DICE predictor
-        //pkt->predCompressible = true; //NS: Predicting always compressible
-        pkt->predCompressible = read_LTT(pkt->getAddr());
+        pkt->predCompressible = true; //NS: Predicting always compressible
+        //pkt->predCompressible = read_LTT(pkt->getAddr()); Pushed in the changes checking something
         if (isInWriteQueue.find(pkt->getAddr()) != isInWriteQueue.end()) {
 
             if (!ORB.empty()) {
@@ -1475,10 +1475,12 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
         }
         else access(pkt);
 
+        /*/ MM : Pushed in the changes but will enable later
         if(pkt->isCompressible)
             update_LTT(pkt->getAddr(),true);
         else 
             update_LTT(pkt->getAddr(),false);
+        */
 
         ORB.at(copyOwPkt->getAddr()) = new reqBufferEntry(
                                             orbEntry->validEntry,
@@ -1518,7 +1520,8 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
         bool hit = currValid && (orbEntry->tagDC == tagMetadataStore.at(norm_idx).tagDC);
         if(hit) {
             orbEntry->owPkt->latencyFactor = 2;
-            update_LTT(pkt->getAddr(),false);
+            // MM : Made the updates, will enable later doing some testing
+            //update_LTT(pkt->getAddr(),false);
         }
 
         DPRINTF(PolicyManager, "NS: For Address %d | Checking normal tag | isHit = %d\n", orbEntry->owPkt->getAddr(), hit);
