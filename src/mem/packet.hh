@@ -296,6 +296,10 @@ class Packet : public Printable
     typedef uint32_t FlagsType;
     typedef gem5::Flags<FlagsType> Flags;
     bool isCompressible = false; //NS: Adding compressibility flag
+    bool predCompressible = false;
+    int compressed_indxex = 0;
+    int latencyFactor = 1;
+
 
   private:
     enum : FlagsType

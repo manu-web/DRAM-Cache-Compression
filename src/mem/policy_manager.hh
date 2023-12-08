@@ -191,6 +191,9 @@ class PolicyManager : public AbstractMemory
      */
     std::vector<tagMetaStoreEntry> tagMetadataStore;
 
+    //Adding a new tag for BAI
+    std::vector<std::vector<tagMetaStoreEntry>> tagBaiMetadataStore;
+
     /** Different states a packet can transition from one
      * to the other while it's process in the DRAM Cache
      * Controller.
@@ -342,8 +345,8 @@ class PolicyManager : public AbstractMemory
     void sendRespondToRequestor(PacketPtr pkt, Tick static_latency);
     void printQSizes() {}
     void handleRequestorPkt(PacketPtr pkt);
-    void checkHitOrMiss(reqBufferEntry* orbEntry);
-    bool checkDirty(Addr addr);
+    void checkHitOrMiss(reqBufferEntry* orbEntry, bool compressed);
+    bool checkDirty(Addr addr, bool compressed);
     void handleDirtyCacheLine(reqBufferEntry* orbEntry);
     bool checkConflictInDramCache(PacketPtr pkt);
     void checkConflictInCRB(reqBufferEntry* orbEntry);
@@ -359,6 +362,7 @@ class PolicyManager : public AbstractMemory
     unsigned countFarWr();
 
     Addr returnIndexDC(Addr pkt_addr, unsigned size);
+    Addr returnBAIDC(Addr request_addr, unsigned size); //New Index for BAI
     Addr returnTagDC(Addr pkt_addr, unsigned size);
 
     // port management
