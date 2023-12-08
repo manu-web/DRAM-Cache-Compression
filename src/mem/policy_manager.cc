@@ -234,8 +234,10 @@ PolicyManager::recvTimingReq(PacketPtr pkt)
 
     if (pkt->isRead()) {
         //TODO MANU - Add DICE predictor
-        pkt->predCompressible = true; //NS: Predicting always compressible
+
+        pkt->predCompressible = (pkt->getAddr()%128 == 0)? true : false; //true; //NS: Predicting same as what write would do
         //pkt->predCompressible = read_LTT(pkt->getAddr()); Pushed in the changes checking something
+
         if (isInWriteQueue.find(pkt->getAddr()) != isInWriteQueue.end()) {
 
             if (!ORB.empty()) {

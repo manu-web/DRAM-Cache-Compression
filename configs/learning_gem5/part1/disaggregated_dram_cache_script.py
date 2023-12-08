@@ -63,6 +63,8 @@ default_binary = os.path.join(
     "CS752_HW3/spectre/spectre.gcc",
 )
 
+default_binary = "/nobackup/neerajs/gem5_752/spec2006/gcc/gcc_base.x86_64_sse"
+
 # Binary to execute
 SimpleOpts.add_option("binary", nargs="?", default=default_binary)
 
@@ -82,7 +84,8 @@ system.mem_mode = "timing"  # Use timing accesses
 system.mem_ranges = [AddrRange("512MB")]  # Create an address range
 
 # Create a simple CPU
-system.cpu = X86O3CPU()
+system.cpu = TimingSimpleCPU()
+system.cpu.max_insts_any_thread = 1000000000
 
 # Create an L1 instruction and data cache
 system.cpu.icache = L1ICache(args)
@@ -160,7 +163,12 @@ system.workload = SEWorkload.init_compatible(args.binary)
 process = Process()
 # Set the command
 # cmd is a list which begins with the executable (like argv)
-process.cmd = [args.binary]
+process.cmd = [
+    args.binary,
+    "/nobackup/neerajs/gem5_752/spec2006/gcc/input/scilab.i",
+    "-o",
+    "scilab.o",
+]
 # Set the cpu to use the process as its workload and create thread contexts
 system.cpu.workload = process
 system.cpu.createThreads()
