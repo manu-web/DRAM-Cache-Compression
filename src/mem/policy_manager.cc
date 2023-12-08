@@ -173,7 +173,7 @@ PolicyManager::recvTimingReq(PacketPtr pkt)
     if (bypassDcache) {
         //TODO MANU - Add predictor
         DPRINTF(PolicyManager, "Sending Req to memory");
-        return farReqPort.sendTimingReq(pkt); 
+        return farReqPort.sendTimingReq(pkt);
     }
     // This is where we enter from the outside world
     DPRINTF(PolicyManager, "recvTimingReq: request %s addr 0x%x size %d\n",
@@ -208,7 +208,7 @@ PolicyManager::recvTimingReq(PacketPtr pkt)
 
         // polManStats.writePktSize[ceilLog2(size)]++;
         /*uint8_t* data_recv = pkt->getPtr<uint8_t>();
-    
+
         for(int i = 0; i < 8; i++) {
             DPRINTF(PolicyManager, "NS: recvTimingReq Write for idx %d is : %x\n", i, data_recv[i]);
         }*/
@@ -417,7 +417,7 @@ PolicyManager::processLocMemReadEvent()
                                    MemCmd::ReadReq);
     /*
     uint8_t* data_recv = rdLocMemPkt->getPtr<uint8_t>();
-    
+
     for(int i = 0; i < 8; i++) {
         DPRINTF(PolicyManager, "NS: processLocMemReadEvent DATA for idx %d is : %x\n", i, data_recv[i]);
     }
@@ -457,7 +457,7 @@ PolicyManager::processLocMemWriteEvent()
 
     /*
     uint8_t* data_recv = wrLocMemPkt->getPtr<uint8_t>();
-    
+
     for(int i = 0; i < 8; i++) {
         DPRINTF(PolicyManager, "NS: processLocMemWriteEvent DATA for idx %d is : %x\n", i, data_recv[i]);
     }*/
@@ -496,7 +496,7 @@ PolicyManager::processFarMemReadEvent()
                                       MemCmd::ReadReq);
     /*
     uint8_t* data_recv = rdFarMemPkt->getPtr<uint8_t>();
-    
+
     for(int i = 0; i < 8; i++) {
         DPRINTF(PolicyManager, "NS: processFarMemReadEvent DATA for idx %d is : %x\n", i, data_recv[i]);
     }
@@ -532,7 +532,7 @@ PolicyManager::processFarMemWriteEvent()
 
     /*
     uint8_t* data_recv = wrFarMemPkt->getPtr<uint8_t>();
-    
+
     for(int i = 0; i < 8; i++) {
         DPRINTF(PolicyManager, "NS: processFarMemWriteEvent DATA for idx %d is : %x\n", i, data_recv[i]);
     }
@@ -574,7 +574,7 @@ PolicyManager::locMemRecvTimingResp(PacketPtr pkt)
 {
     DPRINTF(PolicyManager, "locMemRecvTimingResp : %lld\n", pkt->getAddr());
     auto orbEntry = ORB.at(pkt->getAddr());
-    
+
     /*
     uint8_t* data_recv = pkt->getPtr<uint8_t>();
 
@@ -585,8 +585,8 @@ PolicyManager::locMemRecvTimingResp(PacketPtr pkt)
     if (pkt->isRead()) {
         assert(orbEntry->state == waitingLocMemReadResp);
 
-        if (orbEntry->handleDirtyLine && 
-            (orbEntry->pol == enums::CascadeLakeNoPartWrs || 
+        if (orbEntry->handleDirtyLine &&
+            (orbEntry->pol == enums::CascadeLakeNoPartWrs ||
             orbEntry->pol == enums::RambusHypo ||
             orbEntry->pol ==  enums::BearWriteOpt)
         ) {
@@ -618,13 +618,13 @@ PolicyManager::locMemRecvTimingResp(PacketPtr pkt)
 bool
 PolicyManager::farMemRecvTimingResp(PacketPtr pkt)
 {
-    if (bypassDcache) { 
+    if (bypassDcache) {
         DPRINTF(PolicyManager, "Sending Resp back to source");
         access(pkt); //NS: Required since the actual data is supplied by the policyManager
 
         /*
         uint8_t* data_recv = pkt->getPtr<uint8_t>();
-    
+
         for(int i = 0; i < 64; i++) {
             DPRINTF(PolicyManager, "NS: Bypass sending data from memory | DATA for idx %d is : %x\n", i, data_recv[i]);
         }*/
@@ -632,7 +632,7 @@ PolicyManager::farMemRecvTimingResp(PacketPtr pkt)
         port.schedTimingResp(pkt, curTick());
         return true;
     }
-    
+
     DPRINTF(PolicyManager, "farMemRecvTimingResp : %lld , %s \n", pkt->getAddr(), pkt->cmdString());
 
     if (pkt->isRead()) {
@@ -718,7 +718,7 @@ PolicyManager::farMemRecvReqRetry()
         port.sendRetryReq();
         return;
     }
-    
+
     assert(retryFarMemRead || retryFarMemWrite);
 
     bool schedRd = false;
@@ -860,7 +860,7 @@ PolicyManager::setNextState(reqBufferEntry* orbEntry)
     // RD Hit Dirty & Clean, RD Miss Dirty, WR Miss Dirty
     // start --> read loc
     if (pol == enums::RambusHypo && state == start &&
-        ((isRead && isHit) || (isRead && !isHit && isDirty) || (!isRead && !isHit && isDirty)) 
+        ((isRead && isHit) || (isRead && !isHit && isDirty) || (!isRead && !isHit && isDirty))
        ) {
             orbEntry->state = locMemRead;
             orbEntry->locRdEntered = curTick();
@@ -878,7 +878,7 @@ PolicyManager::setNextState(reqBufferEntry* orbEntry)
     // WR Hit Dirty & Clean, WR Miss Clean
     // start --> write loc
     if (pol == enums::RambusHypo && state == start &&
-        ((!isRead && isHit)|| (!isRead && !isHit && !isDirty)) 
+        ((!isRead && isHit)|| (!isRead && !isHit && !isDirty))
        ) {
             orbEntry->state = locMemWrite;
             orbEntry->locWrEntered = curTick();
@@ -918,7 +918,7 @@ PolicyManager::setNextState(reqBufferEntry* orbEntry)
 
     // RD Miss Clean & Dirty
     // start --> ... --> far read -> loc write
-    if (pol == enums::RambusHypo && 
+    if (pol == enums::RambusHypo &&
         (isRead && !isHit) &&
         state == waitingFarMemReadResp
        ) {
@@ -992,7 +992,7 @@ PolicyManager::setNextState(reqBufferEntry* orbEntry)
         orbEntry->state == waitingLocMemReadResp &&
         orbEntry->isHit) {
             DPRINTF(PolicyManager, "set: waitingLocMemReadResp -> NONE : %d\n", orbEntry->owPkt->getAddr());
-            
+
             // done
             // do nothing
             return;
@@ -1015,7 +1015,7 @@ PolicyManager::setNextState(reqBufferEntry* orbEntry)
         orbEntry->owPkt->isRead() &&
         orbEntry->state == waitingLocMemReadResp &&
         !orbEntry->isHit) {
-            
+
             orbEntry->state = farMemRead;
             orbEntry->farRdEntered = curTick();
             DPRINTF(PolicyManager, "set: waitingLocMemReadResp -> farMemRead : %d\n", orbEntry->owPkt->getAddr());
@@ -1027,7 +1027,7 @@ PolicyManager::setNextState(reqBufferEntry* orbEntry)
         orbEntry->owPkt->isRead() &&
         orbEntry->state == waitingFarMemReadResp &&
         !orbEntry->isHit) {
-            
+
             PacketPtr copyOwPkt = new Packet(orbEntry->owPkt,
                                              false,
                                              orbEntry->owPkt->isRead());
@@ -1076,7 +1076,7 @@ PolicyManager::setNextState(reqBufferEntry* orbEntry)
         // !orbEntry->isHit &&
         orbEntry->state == waitingLocMemWriteResp) {
             DPRINTF(PolicyManager, "set: waitingLocMemWriteResp -> NONE : %d\n", orbEntry->owPkt->getAddr());
-            
+
             // done
             // do nothing
             return;
@@ -1207,7 +1207,7 @@ PolicyManager::handleNextState(reqBufferEntry* orbEntry)
         pktLocMemRead.push_back(orbEntry->owPkt->getAddr());
 
         polManStats.avgLocRdQLenEnq = pktLocMemRead.size();
-            
+
         if (!locMemReadEvent.scheduled()) {
             schedule(locMemReadEvent, curTick());
         }
@@ -1257,7 +1257,7 @@ PolicyManager::handleNextState(reqBufferEntry* orbEntry)
             // clear ORB
             resumeConflictingReq(orbEntry);
 
-            return;            
+            return;
     }
 
     if (orbEntry->pol == enums::RambusHypo &&
@@ -1288,7 +1288,7 @@ PolicyManager::handleNextState(reqBufferEntry* orbEntry)
             pktLocMemWrite.push_back(orbEntry->owPkt->getAddr());
 
             polManStats.avgLocWrQLenEnq = pktLocMemWrite.size();
-            
+
 
             if (!locMemWriteEvent.scheduled()) {
                 schedule(locMemWriteEvent, curTick());
@@ -1364,7 +1364,7 @@ PolicyManager::handleNextState(reqBufferEntry* orbEntry)
             // clear ORB
             resumeConflictingReq(orbEntry);
 
-            return;            
+            return;
     }
 
     if (orbEntry->pol == enums::BearWriteOpt &&
@@ -1396,7 +1396,7 @@ PolicyManager::handleNextState(reqBufferEntry* orbEntry)
             pktLocMemWrite.push_back(orbEntry->owPkt->getAddr());
 
             polManStats.avgLocWrQLenEnq = pktLocMemWrite.size();
-            
+
 
             if (!locMemWriteEvent.scheduled()) {
                 schedule(locMemWriteEvent, curTick());
@@ -1478,7 +1478,7 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
         /*/ MM : Pushed in the changes but will enable later
         if(pkt->isCompressible)
             update_LTT(pkt->getAddr(),true);
-        else 
+        else
             update_LTT(pkt->getAddr(),false);
         */
 
@@ -1534,7 +1534,7 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
     }
     //NS: Just to check if this change is reaching accessAndRespond - Verified
     //orbEntry->owPkt->latencyFactor = 0;
-    
+
     DPRINTF(PolicyManager, "NS: For Address %d | Predicted Compressible = %d| IsHit = %d\n", orbEntry->owPkt->getAddr(), pkt->predCompressible, orbEntry->isHit);
 
     if (checkDirty(orbEntry->owPkt->getAddr(), (orbEntry->owPkt->predCompressible || orbEntry->owPkt->isCompressible)) && !orbEntry->isHit) {
@@ -1555,7 +1555,7 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
     //NS: Experimenting with always compressible
     //if(orbEntry->owPkt->getAddr()%128 == 0) orbEntry->owPkt->isCompressible = true;
 
-    //Calculate the Compressible data index. 
+    //Calculate the Compressible data index.
     //For e.g. - A0 is at compressed index 0 while A1 is at compressed index 1 in the set index 0
     int compressed_index =  (orbEntry->owPkt->getAddr()%(blockSize*2) / blockSize);
 
@@ -1615,7 +1615,7 @@ bool
 PolicyManager::checkConflictInDramCache(PacketPtr pkt)
 {
     unsigned indexDC = (pkt->predCompressible || pkt->isCompressible)? returnBAIDC(pkt->getAddr(), pkt->getSize()) : returnIndexDC(pkt->getAddr(), pkt->getSize());
-    //NS: If prediction is incompressible - conflicts work as usual 0 but shouldn't these conflicts also check for address anyway? 
+    //NS: If prediction is incompressible - conflicts work as usual 0 but shouldn't these conflicts also check for address anyway?
     //NS: If prediction is compressible - If the compressed index is different then is that considered a conflict? Assuming A1 is present whenevr A0 is present, then yes. Else no.
 
     for (auto e = ORB.begin(); e != ORB.end(); ++e) {
@@ -1635,7 +1635,7 @@ PolicyManager::checkHitOrMiss(reqBufferEntry* orbEntry, bool compressed)
     // access the tagMetadataStore data structure to
     // check if it's hit or miss
     int compressed_index =  (orbEntry->owPkt->getAddr()%(2*blockSize) / blockSize);
-    
+
     bool currValid;
     bool currDirty;
 
@@ -1840,7 +1840,7 @@ PolicyManager::resumeConflictingReq(reqBufferEntry* orbEntry)
                 handleRequestorPkt(entry.second);
 
                 ORB.at(confAddr)->arrivalTick = entry.first;
-                
+
                 DPRINTF(PolicyManager, "Resuming conflict at Addr %d\n", confAddr);
 
                 CRB.erase(e);
@@ -1986,7 +1986,7 @@ PolicyManager::returnBAIDC(Addr request_addr, unsigned size)
 {
     int index_bits = ceilLog2(dramCacheSize/blockSize);
     int block_bits = ceilLog2(size);
-    return bits(request_addr, block_bits + index_bits-1, block_bits)/2; //NS TODO: For now using NSI by dividing the index by 2 
+    return bits(request_addr, block_bits + index_bits-1, block_bits)/2; //NS TODO: For now using NSI by dividing the index by 2
 }
 
 Addr
@@ -2007,7 +2007,7 @@ PolicyManager::handleDirtyCacheLine(reqBufferEntry* orbEntry)
                                 orbEntry->owPkt->getSize(),
                                 MemCmd::WriteReq);
     uint8_t* data_recv = wbPkt->getPtr<uint8_t>();
-    
+
     /*for(int i = 0; i < 8; i++) {
         DPRINTF(PolicyManager, "NS: handleDirtyCacheLine DATA for idx %d is : %x\n", i, data_recv[i]);
     }*/

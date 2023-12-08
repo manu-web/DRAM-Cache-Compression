@@ -59,8 +59,8 @@ from common import SimpleOpts
 thispath = os.path.dirname(os.path.realpath(__file__))
 default_binary = os.path.join(
     thispath,
-    "../../../../", #Update as per your system
-    "spectre/spectre.gcc",
+    "../../../../../",  # Update as per your system
+    "CS752_HW3/spectre/spectre.gcc",
 )
 
 # Binary to execute
@@ -118,8 +118,8 @@ system.cpu.interrupts[0].int_responder = system.membus.mem_side_ports
 # Connect the system up to the membus
 system.system_port = system.membus.cpu_side_ports
 
-system.mem_ctrl = PolicyManager(range=AddrRange('1GiB'))
-system.mem_ctrl.dram_cache_size = '128MiB'
+system.mem_ctrl = PolicyManager(range=AddrRange("1GiB"))
+system.mem_ctrl.dram_cache_size = "128MiB"
 # ORB is Outstanding Request Buffer, a buffer for reads and writes requests to the DRAM cache.
 system.mem_ctrl.orb_max_size = "128"
 # CRB is Conflicting Request Buffer, a buffer for serializing the outstanding requests that map to the same cache location.
@@ -127,24 +127,30 @@ system.mem_ctrl.crb_max_size = "32"
 system.mem_ctrl.port = system.membus.mem_side_ports
 
 system.loc_mem_ctrl = HBMCtrl()
-system.loc_mem_ctrl.dram = HBM_2000_4H_1x64(range=AddrRange('1GiB'), in_addr_map=False, null=True)
-system.loc_mem_ctrl.dram_2 = HBM_2000_4H_1x64(range=AddrRange('1GiB'), in_addr_map=False, null=True)
+system.loc_mem_ctrl.dram = HBM_2000_4H_1x64(
+    range=AddrRange("1GiB"), in_addr_map=False, null=True
+)
+system.loc_mem_ctrl.dram_2 = HBM_2000_4H_1x64(
+    range=AddrRange("1GiB"), in_addr_map=False, null=True
+)
 system.loc_mem_ctrl.dram.read_buffer_size = 32
 system.loc_mem_ctrl.dram.write_buffer_size = 32
 system.loc_mem_ctrl.dram_2.read_buffer_size = 32
 system.loc_mem_ctrl.dram_2.write_buffer_size = 32
 
 # for HBM2
-system.mem_ctrl.tRP = '14ns'
-system.mem_ctrl.tRCD_RD = '12ns'
-system.mem_ctrl.tRL = '18ns'
+system.mem_ctrl.tRP = "14ns"
+system.mem_ctrl.tRCD_RD = "12ns"
+system.mem_ctrl.tRL = "18ns"
 
 system.far_mem_ctrl = MemCtrl()
-system.far_mem_ctrl.dram = DDR4_2400_16x4(range=AddrRange('1GiB'),in_addr_map=False, null=True)
+system.far_mem_ctrl.dram = DDR4_2400_16x4(
+    range=AddrRange("1GiB"), in_addr_map=False, null=True
+)
 system.far_mem_ctrl.dram.read_buffer_size = 64
 system.far_mem_ctrl.dram.write_buffer_size = 64
 
-#system.generator.port = system.mem_ctrl.port
+# system.generator.port = system.mem_ctrl.port
 system.loc_mem_ctrl.port = system.mem_ctrl.loc_req_port
 system.far_mem_ctrl.port = system.mem_ctrl.far_req_port
 
