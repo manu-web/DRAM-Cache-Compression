@@ -160,6 +160,7 @@ bool
 PolicyManager::recvTimingReq(PacketPtr pkt)
 {
     if (bypassDcache) {
+        //TODO MANU - Add predictor
         DPRINTF(PolicyManager, "Sending Req to memory");
         return farReqPort.sendTimingReq(pkt); 
     }
@@ -221,7 +222,7 @@ PolicyManager::recvTimingReq(PacketPtr pkt)
     //bool foundInFarMemWrite = false;
 
     if (pkt->isRead()) {
-        //TODO MANU - Add DRAM Cache miss predictor
+        //TODO MANU - Add DICE predictor
         pkt->predCompressible = true; //NS: Predicting always compressible
         if (isInWriteQueue.find(pkt->getAddr()) != isInWriteQueue.end()) {
 
@@ -1409,7 +1410,7 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
 {
     //TODO: Do the compressibility check and flag setting here
     //Because the index to be used - BAI or Normal - would be decided based on that
-    //TODO: MANU - Add Compressibility predictor
+    //TODO: DAN - Add Compressibility check here
     //NS: Experimenting with always compressible
     if(pkt->getAddr()%128 == 0) pkt->isCompressible = true;
 
@@ -1525,9 +1526,8 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
     //NS: For writes the access is done so data should be available
     //NS: What about Reads? - Handled using predictor
     //NS: Call compression logic for Writes
-    //TODO DANIEL 
+    //TODO DANIEL - Do it at before the orbEntry is created - search by your name
 
-    //TODO: MANU - Add Compressibility predictor
     //NS: Experimenting with always compressible
     //if(orbEntry->owPkt->getAddr()%128 == 0) orbEntry->owPkt->isCompressible = true;
 
