@@ -237,6 +237,7 @@ PolicyManager::recvTimingReq(PacketPtr pkt)
     if (pkt->isRead()) {
         //TODO MANU - Add DICE predictor
         pkt->predCompressible = (curTick()%128 == 0)? true : false;
+        pkt->compressed_index =  (pkt->getAddr()%(blockSize*2) / blockSize);
 
         access(pkt);//Experiment
         //DAN: We need the compressibility check here as well
@@ -246,8 +247,6 @@ PolicyManager::recvTimingReq(PacketPtr pkt)
         DPRINTF(PolicyManager, "Read: request %s addr 0x%x | Prediction =  %d | Actual = %d \n",
             pkt->cmdString(), pkt->getAddr(), pkt->predCompressible, pkt->isCompressible);
 
-
-        pkt->predCompressible = (pkt->getAddr()%128 == 0)? true : false; //true; //NS: Predicting same as what write would do
         //pkt->predCompressible = read_LTT(pkt->getAddr()); Pushed in the changes checking something
 
         if (isInWriteQueue.find(pkt->getAddr()) != isInWriteQueue.end()) {
@@ -1423,6 +1422,8 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
     if(!pkt->isRead())access(pkt); //Needed for Writes
     
     if(pkt->getAddr()%128 == 0) pkt->isCompressible = true;
+    pkt->compressed_index =  (pkt->getAddr()%(blockSize*2) / blockSize);
+
     //if(pkt->isRead()) access(pkt);//Experiment - Already done earlier
     DPRINTF(PolicyManager, "Request for Addr = %x => isCompressible = %d\n", pkt->getAddr(), pkt->isCompressible);
 
@@ -1571,7 +1572,7 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
 
     }
     else */ 
-    if (pkt->isRead() && orbEntry->isHit && pkt->isCompressible && pkt->compressed_index == 1) {
+    if (pkt->isRead() && orbEntry->isHit && pkt->isCompressible && pkt->compressed_index == 1) { //TODO NEERAJ - Try updating this logic
         DPRINTF(PolicyManager, "NS: For Address %d | HIT for compressed index 1 | Setting latencyFactor as 0\n", orbEntry->owPkt->getAddr());
 
         orbEntry->owPkt->latencyFactor = 0;
