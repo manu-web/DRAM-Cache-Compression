@@ -346,6 +346,7 @@ class PolicyManager : public AbstractMemory
     void printQSizes() {}
     void handleRequestorPkt(PacketPtr pkt);
     void checkHitOrMiss(reqBufferEntry* orbEntry, bool compressed);
+    bool checkHit(PacketPtr pkt, Addr tagDC, Addr indexDC, bool compressed);
     bool checkDirty(Addr addr, bool compressed);
     void handleDirtyCacheLine(reqBufferEntry* orbEntry);
     bool checkConflictInDramCache(PacketPtr pkt);

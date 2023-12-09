@@ -624,6 +624,7 @@ MemCtrl::accessAndRespond(PacketPtr pkt, Tick static_latency,
                                                 MemInterface* mem_intr)
 {
     DPRINTF(MemCtrl, "Responding to Address %d.. \n", pkt->getAddr());
+    DPRINTF(MemCtrl, "LATENCY FACTOR %d\n", pkt->latencyFactor);
 
     bool needsResponse = pkt->needsResponse();
     // do the actual memory access which also turns the packet into a
@@ -640,7 +641,7 @@ MemCtrl::accessAndRespond(PacketPtr pkt, Tick static_latency,
         // with headerDelay that takes into account the delay provided by
         // the xbar and also the payloadDelay that takes into account the
         // number of data beats.
-        Tick response_time = curTick() + static_latency + pkt->headerDelay +
+        Tick response_time = curTick() + static_latency*pkt->latencyFactor + pkt->headerDelay +
                              pkt->payloadDelay;
         // Here we reset the timing of the packet before sending it out.
         pkt->headerDelay = pkt->payloadDelay = 0;

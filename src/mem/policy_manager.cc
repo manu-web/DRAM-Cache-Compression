@@ -196,11 +196,7 @@ PolicyManager::recvTimingReq(PacketPtr pkt)
     if (pkt->isWrite()) {
 
         // polManStats.writePktSize[ceilLog2(size)]++;
-        /*uint8_t* data_recv = pkt->getPtr<uint8_t>();
-    
-        for(int i = 0; i < 8; i++) {
-            DPRINTF(PolicyManager, "NS: recvTimingReq Write for idx %d is : %x\n", i, data_recv[i]);
-        }*/
+ 
         bool merged = isInWriteQueue.find((addr & ~(Addr(locBurstSize - 1)))) !=
             isInWriteQueue.end();
 
@@ -223,7 +219,17 @@ PolicyManager::recvTimingReq(PacketPtr pkt)
 
     if (pkt->isRead()) {
         //TODO MANU - Add DICE predictor
-        pkt->predCompressible = (pkt->getAddr()%128 == 0)? true : false; //true; //NS: Predicting same as what write would do
+        pkt->predCompressible = (curTick()%128 == 0)? true : false;
+
+        access(pkt);//Experiment
+        //DAN: We need the compressibility check here as well
+        if(pkt->getAddr()%128 == 0) pkt->isCompressible = true;
+
+        //Experimenting 
+        DPRINTF(PolicyManager, "Read: request %s addr 0x%x | Prediction =  %d | Actual = %d \n",
+            pkt->cmdString(), pkt->getAddr(), pkt->predCompressible, pkt->isCompressible);
+
+
         if (isInWriteQueue.find(pkt->getAddr()) != isInWriteQueue.end()) {
 
             if (!ORB.empty()) {
@@ -403,13 +409,9 @@ PolicyManager::processLocMemReadEvent()
     PacketPtr rdLocMemPkt = getPacket(pktLocMemRead.front(),
                                    blockSize,
                                    MemCmd::ReadReq);
-    /*
-    uint8_t* data_recv = rdLocMemPkt->getPtr<uint8_t>();
     
-    for(int i = 0; i < 8; i++) {
-        DPRINTF(PolicyManager, "NS: processLocMemReadEvent DATA for idx %d is : %x\n", i, data_recv[i]);
-    }
-    */
+    //NS:
+    rdLocMemPkt->latencyFactor = orbEntry->owPkt->latencyFactor;
 
     if (locReqPort.sendTimingReq(rdLocMemPkt)) {
         DPRINTF(PolicyManager, "loc mem read is sent : %lld\n", rdLocMemPkt->getAddr());
@@ -443,13 +445,6 @@ PolicyManager::processLocMemWriteEvent()
                                    blockSize,
                                    MemCmd::WriteReq);
 
-    /*
-    uint8_t* data_recv = wrLocMemPkt->getPtr<uint8_t>();
-    
-    for(int i = 0; i < 8; i++) {
-        DPRINTF(PolicyManager, "NS: processLocMemWriteEvent DATA for idx %d is : %x\n", i, data_recv[i]);
-    }*/
-
     if (locReqPort.sendTimingReq(wrLocMemPkt)) {
 
         DPRINTF(PolicyManager, "loc mem write is sent : %lld\n", wrLocMemPkt->getAddr());
@@ -482,13 +477,6 @@ PolicyManager::processFarMemReadEvent()
     PacketPtr rdFarMemPkt = getPacket(pktFarMemRead.front(),
                                       blockSize,
                                       MemCmd::ReadReq);
-    /*
-    uint8_t* data_recv = rdFarMemPkt->getPtr<uint8_t>();
-    
-    for(int i = 0; i < 8; i++) {
-        DPRINTF(PolicyManager, "NS: processFarMemReadEvent DATA for idx %d is : %x\n", i, data_recv[i]);
-    }
-    */
 
     if (farReqPort.sendTimingReq(rdFarMemPkt)) {
         DPRINTF(PolicyManager, "far mem read is sent : %lld\n", rdFarMemPkt->getAddr());
@@ -610,13 +598,6 @@ PolicyManager::farMemRecvTimingResp(PacketPtr pkt)
         DPRINTF(PolicyManager, "Sending Resp back to source");
         access(pkt); //NS: Required since the actual data is supplied by the policyManager
 
-        /*
-        uint8_t* data_recv = pkt->getPtr<uint8_t>();
-    
-        for(int i = 0; i < 64; i++) {
-            DPRINTF(PolicyManager, "NS: Bypass sending data from memory | DATA for idx %d is : %x\n", i, data_recv[i]);
-        }*/
-
         port.schedTimingResp(pkt, curTick());
         return true;
     }
@@ -630,10 +611,6 @@ PolicyManager::farMemRecvTimingResp(PacketPtr pkt)
         DPRINTF(PolicyManager, "farMemRecvTimingResp : continuing to far read resp: %d\n",
         orbEntry->owPkt->isRead());
 
-        /*uint8_t* data_recv = pkt->getPtr<uint8_t>();
-        for(int i = 0; i < 8; i++) {
-            DPRINTF(PolicyManager, "NS: farMemRecvTimingResp DATA for idx %d is : %x\n", i, data_recv[i]);
-        }*/
         assert(orbEntry->state == waitingFarMemReadResp);
 
         orbEntry->farRdExit = curTick();
@@ -741,7 +718,7 @@ PolicyManager::setNextState(reqBufferEntry* orbEntry)
     reqState state = orbEntry->state;
     bool isRead = orbEntry->owPkt->isRead();
     bool isHit = orbEntry->isHit;
-    bool isDirty = checkDirty(orbEntry->owPkt->getAddr(), (orbEntry->owPkt->predCompressible || orbEntry->owPkt->isCompressible)); //NS
+    bool isDirty = checkDirty(orbEntry->owPkt->getAddr(), (/*orbEntry->owPkt->predCompressible || */orbEntry->owPkt->isCompressible)); //NS
 
     // start --> read tag
     if (orbEntry->pol == enums::CascadeLakeNoPartWrs &&
@@ -1408,16 +1385,57 @@ PolicyManager::handleNextState(reqBufferEntry* orbEntry)
 void
 PolicyManager::handleRequestorPkt(PacketPtr pkt)
 {
+    
+    DPRINTF(PolicyManager, "Handling Request for Addr = %x\n", pkt->getAddr());
+    DPRINTF(PolicyManager, "TSI Index = %d | BAI Index = %d | Tag = %d\n", returnBAIDC(pkt->getAddr(), pkt->getSize()), returnIndexDC(pkt->getAddr(), pkt->getSize()), returnTagDC(pkt->getAddr(), pkt->getSize()));
+
     //TODO: Do the compressibility check and flag setting here
     //Because the index to be used - BAI or Normal - would be decided based on that
-    //TODO: DAN - Add Compressibility check here
+    //TODO: DAN - Add Compressibility check here - for Writes
     //NS: Experimenting with always compressible
+    if(!pkt->isRead())access(pkt); //Needed for Writes
+    
     if(pkt->getAddr()%128 == 0) pkt->isCompressible = true;
+    //if(pkt->isRead()) access(pkt);//Experiment - Already done earlier
+    DPRINTF(PolicyManager, "Request for Addr = %x => isCompressible = %d\n", pkt->getAddr(), pkt->isCompressible);
+
+    //If prediction is correct - latencyFactor = 1
+    //Else if it is incorrect and there's a hit in the other tag - latencyFactor = 2
+    
+    //If the prediction is incorrect
+    if(pkt->isRead() && pkt->isCompressible != pkt->predCompressible) {
+        if(pkt->isCompressible) { //Prediction = TSI | Actual = BAI
+            DPRINTF(PolicyManager, "Checking at norm index = %d\n", returnIndexDC(pkt->getAddr(), pkt->getSize()));
+
+            bool NormHit = checkHit(pkt, returnTagDC(pkt->getAddr(), pkt->getSize()), returnIndexDC(pkt->getAddr(), pkt->getSize()), 0);
+           // assert(!NormHit); //It cannot hit in TSI  - HITTING due to small address hence tag 0 for all - NEERAJ TO CHECK
+
+            bool BaiHit = checkHit(pkt, returnTagDC(pkt->getAddr(), pkt->getSize()), returnBAIDC(pkt->getAddr(), pkt->getSize()), 1);
+            if(BaiHit) {
+                pkt->latencyFactor = 2;
+                DPRINTF(PolicyManager, "For Misprediction of Request Addr = %d | Got BAI HIT - Setting latency factor of 2\n", pkt->getAddr());
+            }
+
+        }
+        else { //Prediction = BAI | Actual = TSI
+            bool BaiHit = checkHit(pkt, returnTagDC(pkt->getAddr(), pkt->getSize()), returnBAIDC(pkt->getAddr(), pkt->getSize()), 1);
+            //assert(!BaiHit); //It cannot hit in TSI 
+
+            
+            bool NormHit = checkHit(pkt, returnTagDC(pkt->getAddr(), pkt->getSize()), returnIndexDC(pkt->getAddr(), pkt->getSize()), 0);
+            if(NormHit) {
+                pkt->latencyFactor = 2;
+                DPRINTF(PolicyManager, "For Misprediction of Request Addr = %d | Got Normal HIT - Setting latency factor of 2\n", pkt->getAddr());
+            }
+        }
+    }
+    
+
 
     reqBufferEntry* orbEntry = new reqBufferEntry(
                                 true, curTick(),
                                 returnTagDC(pkt->getAddr(), pkt->getSize()),
-                                (pkt->predCompressible || pkt->isCompressible)? returnBAIDC(pkt->getAddr(), pkt->getSize()) : returnIndexDC(pkt->getAddr(), pkt->getSize()), //TODO: NEERAJ - Also use isCompressible for writes
+                                (/*pkt->predCompressible || */pkt->isCompressible)? returnBAIDC(pkt->getAddr(), pkt->getSize()) : returnIndexDC(pkt->getAddr(), pkt->getSize()), //TODO: NEERAJ - Also use isCompressible for writes
                                 pkt,
                                 locMemPolicy, start,
                                 false, false, false,
@@ -1490,9 +1508,10 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
         orbEntry = ORB.at(copyOwPkt->getAddr());
     }
 
-    checkHitOrMiss(orbEntry, pkt->predCompressible);
+    checkHitOrMiss(orbEntry, pkt->isCompressible/*pkt->predCompressible*/);
     //NS: If Read and predicted compressed and it is not a HIT, then check the normal tags, and if a HIT is found, then set 2x latency.
-    if(pkt->isRead() && !orbEntry->isHit && pkt->predCompressible) {
+    //Done already above
+    /*if(pkt->isRead() && !orbEntry->isHit && pkt->predCompressible) {
         Addr norm_idx = returnIndexDC(pkt->getAddr(), pkt->getSize());
         bool currValid = tagMetadataStore.at(norm_idx).validLine;
         bool currDirty = tagMetadataStore.at(norm_idx).dirtyLine;
@@ -1503,7 +1522,8 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
         DPRINTF(PolicyManager, "NS: For Address %d | Checking normal tag | isHit = %d\n", orbEntry->owPkt->getAddr(), hit);
 
     }
-    else if (pkt->isRead() && orbEntry->isHit && pkt->compressed_index == 1) {
+    else */ 
+    if (pkt->isRead() && orbEntry->isHit && pkt->isCompressible && pkt->compressed_index == 1) {
         DPRINTF(PolicyManager, "NS: For Address %d | HIT for compressed index 1 | Setting latencyFactor as 0\n", orbEntry->owPkt->getAddr());
 
         orbEntry->owPkt->latencyFactor = 0;
@@ -1513,7 +1533,7 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
     
     DPRINTF(PolicyManager, "NS: For Address %d | Predicted Compressible = %d| IsHit = %d\n", orbEntry->owPkt->getAddr(), pkt->predCompressible, orbEntry->isHit);
 
-    if (checkDirty(orbEntry->owPkt->getAddr(), (orbEntry->owPkt->predCompressible || orbEntry->owPkt->isCompressible)) && !orbEntry->isHit) {
+    if (checkDirty(orbEntry->owPkt->getAddr(), (/*orbEntry->owPkt->predCompressible || */orbEntry->owPkt->isCompressible)) && !orbEntry->isHit) {
         orbEntry->dirtyLineAddr = tagMetadataStore.at(orbEntry->indexDC).farMemAddr;
         orbEntry->handleDirtyLine = true;
     }
@@ -1543,22 +1563,34 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
     //Now when allocating a new compressed line, a check to see if the other half is compressed or not would be required
     //Also, when allocating say A0 in set 0, compressed index 0, check the compressed index 1 - if it holds A1 then okay, else evict that index 1.
 
-    //TODO NEERAJ - Also use predCompressible to check which tag to update
-    if(orbEntry->owPkt->isCompressible || orbEntry->owPkt->predCompressible) {
+    //Solved the above issue by :
+    //Accessing the data and knowing if it's going to be compressible
+    //And then using this knowledge to update the correct tag
+    //PredCompressible is used only to deteremine the response latency from the DRAM cache
+
+    //TODO NEERAJ - Also use predCompressible to check which tag to update - This could mess things - So update only the correct tag
+
+    if(orbEntry->owPkt->isCompressible /*|| orbEntry->owPkt->predCompressible*/) {
         //Updating BAI Tag and Metadata
         tagBaiMetadataStore.at(orbEntry->indexDC).at(compressed_index).tagDC = orbEntry->tagDC;
         tagBaiMetadataStore.at(orbEntry->indexDC).at(compressed_index).indexDC = orbEntry->indexDC;
         tagBaiMetadataStore.at(orbEntry->indexDC).at(compressed_index).validLine = true;
-        DPRINTF(PolicyManager, "NS: For Address %d | Adding tagBai for set index = %d and compressed index = %d\n", orbEntry->owPkt->getAddr(), orbEntry->indexDC, compressed_index);
+        DPRINTF(PolicyManager, "For Address %d | Adding bai tag for set index = %d and compressed index = %d\n", orbEntry->owPkt->getAddr(), orbEntry->indexDC, compressed_index);
+
+        //Evict from the other tag
+        tagMetadataStore.at(orbEntry->indexDC).validLine = false;
     } else {
         // Updating Normal Tag & Metadata
         tagMetadataStore.at(orbEntry->indexDC).tagDC = orbEntry->tagDC;
         tagMetadataStore.at(orbEntry->indexDC).indexDC = orbEntry->indexDC;
         tagMetadataStore.at(orbEntry->indexDC).validLine = true;
-        DPRINTF(PolicyManager, "NS: For Address %d | Adding normal tag for set index = %d\n", orbEntry->owPkt->getAddr(), orbEntry->indexDC);
+        DPRINTF(PolicyManager, "For Address %d | Adding normal tag for set index = %d\n", orbEntry->owPkt->getAddr(), orbEntry->indexDC);
+
+        //Evict from the other tag
+        tagBaiMetadataStore.at(orbEntry->indexDC).at(0).validLine = false;
+        tagBaiMetadataStore.at(orbEntry->indexDC).at(1).validLine = false;
     }
-    //NS: TODO NEERAJ - Handle tag evictions too.
-    //NS: Check if the other tag is valid at that index and invalid it
+    //NS: TODO NEERAJ - Handle tag evictions too - DONE
 
     if (orbEntry->owPkt->isRead()) {
         if(orbEntry->owPkt->isCompressible) {
@@ -1590,9 +1622,10 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
 bool
 PolicyManager::checkConflictInDramCache(PacketPtr pkt)
 {
-    unsigned indexDC = (pkt->predCompressible || pkt->isCompressible)? returnBAIDC(pkt->getAddr(), pkt->getSize()) : returnIndexDC(pkt->getAddr(), pkt->getSize());
+    unsigned indexDC = (/*pkt->predCompressible || */pkt->isCompressible)? returnBAIDC(pkt->getAddr(), pkt->getSize()) : returnIndexDC(pkt->getAddr(), pkt->getSize());
     //NS: If prediction is incompressible - conflicts work as usual 0 but shouldn't these conflicts also check for address anyway? 
     //NS: If prediction is compressible - If the compressed index is different then is that considered a conflict? Assuming A1 is present whenevr A0 is present, then yes. Else no.
+    //Always assuming here that if a compressed line is valid, both the compressed indexes are present
 
     for (auto e = ORB.begin(); e != ORB.end(); ++e) {
         if (indexDC == e->second->indexDC && e->second->validEntry) {
@@ -1601,6 +1634,27 @@ PolicyManager::checkConflictInDramCache(PacketPtr pkt)
 
             return true;
         }
+    }
+    return false;
+}
+
+//NS: Only checking based on addr and index
+bool
+PolicyManager::checkHit(PacketPtr pkt, Addr tagDC, Addr indexDC, bool compressed)
+{
+    // access the tagMetadataStore data structure to
+    // check if it's hit or miss
+    int compressed_index =  (pkt->getAddr()%(2*blockSize) / blockSize);
+    
+    bool currValid;
+    bool currDirty;
+
+    if (compressed) {
+        currValid = tagBaiMetadataStore.at(indexDC).at(compressed_index).validLine;
+        return (currValid && (tagDC == tagBaiMetadataStore.at(indexDC).at(compressed_index).tagDC));
+    } else {
+        currValid = tagMetadataStore.at(indexDC).validLine;
+        return (currValid && (tagDC == tagMetadataStore.at(indexDC).tagDC));
     }
     return false;
 }
@@ -1714,7 +1768,7 @@ PolicyManager::accessAndRespond(PacketPtr pkt, Tick static_latency)
     access(pkt);
 
     // turn packet around to go back to requestor if response expected
-    assert(needsResponse);
+    //assert(needsResponse); //Experiment
     //if (needsResponse) {
         // access already turned the packet into a response
         assert(pkt->isResponse());
@@ -1722,7 +1776,7 @@ PolicyManager::accessAndRespond(PacketPtr pkt, Tick static_latency)
         // with headerDelay that takes into account the delay provided by
         // the xbar and also the payloadDelay that takes into account the
         // number of data beats.
-        Tick response_time = curTick() + static_latency*pkt->latencyFactor + pkt->headerDelay +
+        Tick response_time = curTick() + static_latency/**pkt->latencyFactor*/ + pkt->headerDelay +
                              pkt->payloadDelay; //NS
         // Here we reset the timing of the packet before sending it out.
         pkt->headerDelay = pkt->payloadDelay = 0;
@@ -1800,7 +1854,7 @@ PolicyManager::resumeConflictingReq(reqBufferEntry* orbEntry)
 
         auto entry = *e;
 
-        if (((entry.second->predCompressible || entry.second->isCompressible)? returnBAIDC(entry.second->getAddr(), entry.second->getSize()) : returnIndexDC(entry.second->getAddr(), entry.second->getSize()))
+        if (((/*entry.second->predCompressible || */entry.second->isCompressible)? returnBAIDC(entry.second->getAddr(), entry.second->getSize()) : returnIndexDC(entry.second->getAddr(), entry.second->getSize()))
             == orbEntry->indexDC) {
 
                 conflictFound = true;
@@ -1867,7 +1921,7 @@ PolicyManager::checkConflictInCRB(reqBufferEntry* orbEntry)
 
         auto entry = *e;
 
-        if (((orbEntry->owPkt->predCompressible || orbEntry->owPkt->isCompressible)? returnBAIDC(entry.second->getAddr(),entry.second->getSize()) : returnIndexDC(entry.second->getAddr(),entry.second->getSize()))
+        if (((/*orbEntry->owPkt->predCompressible ||*/ orbEntry->owPkt->isCompressible)? returnBAIDC(entry.second->getAddr(),entry.second->getSize()) : returnIndexDC(entry.second->getAddr(),entry.second->getSize()))
             == orbEntry->indexDC) {
                 orbEntry->conflict = true;
                 break;
@@ -1937,7 +1991,7 @@ PolicyManager::returnBAIDC(Addr request_addr, unsigned size)
 {
     int index_bits = ceilLog2(dramCacheSize/blockSize);
     int block_bits = ceilLog2(size);
-    return bits(request_addr, block_bits + index_bits-1, block_bits)/2; //NS TODO: For now using NSI by dividing the index by 2 
+    return bits(request_addr, block_bits + index_bits-1, block_bits)/2; //NS TODO NEERAJ: For now using NSI by dividing the index by 2 
 }
 
 Addr
@@ -1958,10 +2012,6 @@ PolicyManager::handleDirtyCacheLine(reqBufferEntry* orbEntry)
                                 orbEntry->owPkt->getSize(),
                                 MemCmd::WriteReq);
     uint8_t* data_recv = wbPkt->getPtr<uint8_t>();
-    
-    /*for(int i = 0; i < 8; i++) {
-        DPRINTF(PolicyManager, "NS: handleDirtyCacheLine DATA for idx %d is : %x\n", i, data_recv[i]);
-    }*/
 
     pktFarMemWrite.push_back(std::make_pair(curTick(), wbPkt));
 
