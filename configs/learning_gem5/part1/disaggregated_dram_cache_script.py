@@ -85,7 +85,7 @@ system.mem_ranges = [AddrRange("512MB")]  # Create an address range
 
 # Create a simple CPU
 system.cpu = TimingSimpleCPU()
-system.cpu.max_insts_any_thread=1000000000
+system.cpu.max_insts_any_thread=500000000
 
 # Create an L1 instruction and data cache
 system.cpu.icache = L1ICache(args)
