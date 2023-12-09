@@ -38,6 +38,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <functional>
 
 #include "base/callback.hh"
 #include "base/compiler.hh"
@@ -193,6 +194,15 @@ class PolicyManager : public AbstractMemory
 
     //Adding a new tag for BAI
     std::vector<std::vector<tagMetaStoreEntry>> tagBaiMetadataStore;
+
+    //MM : Adding a hash table for the read predictor on whether the data is compressible or not. 
+    std::unordered_map<Addr,bool> last_time_table;
+
+    //MM : Adding a hash function for the last time table predictor
+    std::hash<Addr> ltt_hash_fn;
+
+    //MM : Adding a param for LTT table size;
+    int ltt_table_size; // MM : Default is 2048 in the DICE paper
 
     /** Different states a packet can transition from one
      * to the other while it's process in the DRAM Cache
@@ -365,6 +375,8 @@ class PolicyManager : public AbstractMemory
     Addr returnIndexDC(Addr pkt_addr, unsigned size);
     Addr returnBAIDC(Addr request_addr, unsigned size); //New Index for BAI
     Addr returnTagDC(Addr pkt_addr, unsigned size);
+    bool read_LTT(Addr request_addr); // Returns true/false whether data is compressible or not
+    void update_LTT(Addr request_addr, bool is_read_data_compressible); // Updates LTT with the status from true compressiblity algorithm when data is received
 
     // port management
     void locMemRecvReqRetry();
