@@ -295,6 +295,11 @@ class Packet : public Printable
   public:
     typedef uint32_t FlagsType;
     typedef gem5::Flags<FlagsType> Flags;
+    bool isCompressible = false; //NS: Adding compressibility flag
+    bool predCompressible = false;
+    int compressed_index = 0;
+    int latencyFactor = 1;
+
 
   private:
     enum : FlagsType
@@ -950,7 +955,11 @@ class Packet : public Printable
            headerDelay(pkt->headerDelay),
            snoopDelay(0),
            payloadDelay(pkt->payloadDelay),
-           senderState(pkt->senderState)
+           senderState(pkt->senderState),
+           isCompressible(pkt->isCompressible), //For DICE
+           compressed_index(pkt->compressed_index), //For DICE
+           latencyFactor(pkt->latencyFactor) //For DICE
+
     {
         if (!clear_flags)
             flags.set(pkt->flags & COPY_FLAGS);
