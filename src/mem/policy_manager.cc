@@ -2049,11 +2049,13 @@ PolicyManager::returnBAIDC(Addr request_addr, unsigned size)
 {
     int index_bits = ceilLog2(dramCacheSize/blockSize);
     int block_bits = ceilLog2(size);
-<<<<<<< HEAD
-    return bits(request_addr, block_bits + index_bits-1, block_bits)/2; //NS TODO NEERAJ: For now using NSI by dividing the index by 2 
-=======
-    return bits(request_addr, block_bits + index_bits-1, block_bits)/2; //NS TODO: For now using NSI by dividing the index by 2
->>>>>>> 49ddebd450298ae057eab5bddcdd441ced005794
+    int numBlocks = ceil(dramCacheSize/blockSize);
+
+    if((request_addr%128 == 0) && (request_addr%(2*numBlocks) == 0) || (request_addr%128 == 1) && (request_addr%(2*numBlocks) == 1)) return bits(request_addr, block_bits + index_bits-1, block_bits); //A0 or A9
+    else if((request_addr%128 == 1) && (request_addr%(2*numBlocks) == 0)) return (bits(request_addr, block_bits + index_bits-1, block_bits) - 1); //A1
+    else if((request_addr%128 == 0) && (request_addr%(2*numBlocks) == 1)) return (bits(request_addr, block_bits + index_bits-1, block_bits) + 1); //A8
+
+    //return bits(request_addr, block_bits + index_bits-1, block_bits)/2; //NS TODO NEERAJ: For now using NSI by dividing the index by 2 
 }
 
 Addr
