@@ -39,6 +39,7 @@
 #include <utility>
 #include <vector>
 #include <functional>
+#include <cmath>
 
 #include "base/callback.hh"
 #include "base/compiler.hh"
@@ -198,11 +199,23 @@ class PolicyManager : public AbstractMemory
     //MM : Adding a hash table for the read predictor on whether the data is compressible or not. 
     std::unordered_map<Addr,bool> last_time_table;
 
+    //MM : Adding a hash table for the bypass Dcache(SAM/PAM) predictor;
+    std::unordered_map<Addr,int> inst_based_MAP_table;
+
     //MM : Adding a hash function for the last time table predictor
     std::hash<Addr> ltt_hash_fn;
 
+    //MM : Adding a hash function for the instruction based MAP predictor
+    std::hash<Addr> inst_based_MAP_hash_fn;
+
     //MM : Adding a param for LTT table size;
     int ltt_table_size; // MM : Default is 2048 in the DICE paper
+
+    //MM : Adding a param for instruction based MAP predictor table size
+    int inst_based_MAP_table_size; // MM : Default is 256 in the Alloy Cache paper
+
+    //MM : Adding a param for the bit vector size used in the instruction based MAP for bypass Dcache predictor
+    int inst_based_MAP_bit_vector_size; // MM : Default is 3 in the Alloy Cache paper
 
     /** Different states a packet can transition from one
      * to the other while it's process in the DRAM Cache
@@ -377,6 +390,9 @@ class PolicyManager : public AbstractMemory
     Addr returnTagDC(Addr pkt_addr, unsigned size);
     bool read_LTT(Addr request_addr); // Returns true/false whether data is compressible or not
     void update_LTT(Addr request_addr, bool is_read_data_compressible); // Updates LTT with the status from true compressiblity algorithm when data is received
+    bool read_MAPI(Addr request_addr); // Returns whether the access should follow SAM/PAM(bypass Dcache or not)
+    void update_MAPI(Addr request_addr, bool is_dram_cache_hit); // Updates MAPI with the status whether the request to the DRAM Cache was a hit or a miss.
+    void increment_MAPI_count(Addr request_addr, bool is_dram_cache_hit); // Increments counter value for bypass Dcache prediction
 
     // port management
     void locMemRecvReqRetry();

@@ -46,6 +46,8 @@ class PolicyManager(AbstractMemory):
     loc_burst_size = Param.Unsigned(64, "Local memory burst size")
     far_burst_size = Param.Unsigned(64, "Far memory burst size")
     ltt_table_size = Param.Unsigned(2048, "Last time table(used read data compressibility prediction) size")
+    inst_based_MAP_table_size = Param.Unsigned(256, "Instruction-based MAP table(used for bypass Dcache prediction) table size")
+    inst_based_MAP_bit_vector_size = Param.Unsigned(3, 'Instruction-based MAP table(used for bypass Dcache prediction) bit vector size')
 
     # loc_mem_ctrl = Param.MemCtrl("Local memory controller")
     # far_mem_ctrl = Param.MemCtrl("Far memory controller")

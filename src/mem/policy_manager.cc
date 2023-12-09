@@ -54,8 +54,9 @@ PolicyManager::PolicyManager(const PolicyManagerParams &p):
     orbMaxSize(p.orb_max_size), orbSize(0),
     crbMaxSize(p.crb_max_size), crbSize(0),
     alwaysHit(p.always_hit), alwaysDirty(p.always_dirty),
-    bypassDcache(p.bypass_dcache),
     ltt_table_size(p.ltt_table_size),
+    inst_based_MAP_table_size(p.inst_based_MAP_table_size),
+    bypassDcache(p.bypass_dcache),
     frontendLatency(p.static_frontend_latency),
     backendLatency(p.static_backend_latency),
     tRP(p.tRP),
@@ -82,6 +83,9 @@ PolicyManager::PolicyManager(const PolicyManagerParams &p):
 
     //Init last time table to false
     for(int i = 0; i<ltt_table_size; i++) last_time_table[i] = false;
+
+    //Init instruction based MAP table to false
+    for(int i = 0; i<inst_based_MAP_table_size; i++) inst_based_MAP_table[i] = false;
 
 }
 
@@ -170,6 +174,8 @@ PolicyManager::init()
 bool
 PolicyManager::recvTimingReq(PacketPtr pkt)
 {
+    //TODO MANU : Need to add it back
+    //bypassDcache = read_MAPI(pkt->getAddr());
     if (bypassDcache) {
         //TODO MANU - Add predictor
         DPRINTF(PolicyManager, "Sending Req to memory");
@@ -1437,6 +1443,10 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
                 DPRINTF(PolicyManager, "For Misprediction of Request Addr = %d | Got BAI HIT - Setting latency factor of 2\n", pkt->getAddr());
             }
 
+            // TODO : Need to add back
+            //if(NormHit || BaiHit)
+            //    update_MAPI(pkt->getAddr(),true);
+
         }
         else { //Prediction = BAI | Actual = TSI
             bool BaiHit = checkHit(pkt, returnTagDC(pkt->getAddr(), pkt->getSize()), returnBAIDC(pkt->getAddr(), pkt->getSize()), 1);
@@ -1448,7 +1458,12 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
                 pkt->latencyFactor = 2;
                 DPRINTF(PolicyManager, "For Misprediction of Request Addr = %d | Got Normal HIT - Setting latency factor of 2\n", pkt->getAddr());
             }
+
+            // TODO : Need to add back
+            //if(NormHit || BaiHit)
+            //    update_MAPI(pkt->getAddr(),true);
         }
+
     }
     
 
@@ -1736,6 +1751,8 @@ PolicyManager::checkHitOrMiss(reqBufferEntry* orbEntry, bool compressed)
         }
 
     } else {
+
+        //update_MAPI(orbEntry->owPkt->getAddr(),false);
 
         polManStats.numTotMisses++;
 
@@ -2031,6 +2048,48 @@ void PolicyManager::update_LTT(Addr request_addr, bool is_read_data_compressible
     bool predicted_compressible = last_time_table[ltt_hash_fn(page_number) % ltt_table_size];
     last_time_table[ltt_hash_fn(page_number) % ltt_table_size] = is_read_data_compressible;
     DPRINTF(PolicyManager, "update_LTT: Addr 0x%x, Page no. 0x%0x, predicted_compressible %0d, actual_compressible %0d \n",request_addr,page_number,predicted_compressible,is_read_data_compressible);
+
+    return;
+}
+
+bool PolicyManager::read_MAPI(Addr request_addr) {
+
+    // Apply hash function and take modulo to fit into the inst_based_MAP_table_size
+
+    bool bypass_dcache;
+    int mapi_cnt_value = inst_based_MAP_table[inst_based_MAP_hash_fn(request_addr) % inst_based_MAP_table_size];
+    bypass_dcache = mapi_cnt_value%int(std::pow(2, inst_based_MAP_bit_vector_size-1));
+    DPRINTF(PolicyManager, "read_MAPI: Addr 0x%x, mapi_cnt_value %0d, bypass_dcache %0d \n",request_addr,mapi_cnt_value,bypass_dcache);
+
+    return bypass_dcache;
+}
+
+void PolicyManager::increment_MAPI_count(Addr request_addr, bool is_dram_cache_hit=false) {
+
+    Addr mapi_table_index;
+
+    mapi_table_index = inst_based_MAP_hash_fn(request_addr) % inst_based_MAP_table_size;
+
+    if(inst_based_MAP_table.find(mapi_table_index) == inst_based_MAP_table.end())
+        inst_based_MAP_table[mapi_table_index] = 1;
+
+    if(!is_dram_cache_hit){
+        if(inst_based_MAP_table[mapi_table_index] < (int(std::pow(2, inst_based_MAP_bit_vector_size))-1))
+            inst_based_MAP_table[mapi_table_index] += 1;
+    }else{
+        if(inst_based_MAP_table[mapi_table_index] > 0)
+            inst_based_MAP_table[mapi_table_index] -= 1;
+    } 
+
+}
+
+void PolicyManager::update_MAPI(Addr request_addr, bool is_dram_cache_hit=false) {
+
+    // Apply hash function and take modulo to fit into the inst_based_MAP_table_size
+
+    bool predicted_bypass_dcache = inst_based_MAP_table[inst_based_MAP_hash_fn(request_addr) % inst_based_MAP_table_size]%int(std::pow(2, inst_based_MAP_bit_vector_size-1));
+    increment_MAPI_count(request_addr,is_dram_cache_hit);
+    DPRINTF(PolicyManager, "update_MAPI: Addr 0x%x, predicted_bypass_dcache %0d, is_dram_cache_hit %0d \n",request_addr,predicted_bypass_dcache,is_dram_cache_hit);
 
     return;
 }

@@ -63,7 +63,7 @@ default_binary = os.path.join(
     "CS752_HW3/spectre/spectre.gcc",
 )
 
-default_binary = "/nobackup/neerajs/gem5_752/spec2006/gcc/gcc_base.x86_64_sse"
+#default_binary = "/nobackup/neerajs/gem5_752/spec2006/gcc/gcc_base.x86_64_sse"
 
 # Binary to execute
 SimpleOpts.add_option("binary", nargs="?", default=default_binary)
