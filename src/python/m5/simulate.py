@@ -271,6 +271,7 @@ def drain():
 
     """
 
+    print("aatman: draining the simulator")
     # Try to drain all objects. Draining might not be completed unless
     # all objects return that they are drained on the first call. This
     # is because as objects drain they may cause other objects to no
@@ -284,7 +285,9 @@ def drain():
 
         # WARNING: if a valid exit event occurs while draining, it
         # will not get returned to the user script
+        print("aatman: draining the simulator: event.simulate")
         exit_event = _m5.event.simulate()
+        print("aatman: draining the simulator: simulated")
         while exit_event.getCause() != "Finished drain":
             exit_event = simulate()
 
@@ -345,6 +348,7 @@ def switchCpus(system, cpuList, verbose=True):
 
     if verbose:
         print("switching cpus")
+        print("aatman switching cpus")
 
     if not isinstance(cpuList, list):
         raise RuntimeError("Must pass a list to this function")
@@ -384,11 +388,14 @@ def switchCpus(system, cpuList, verbose=True):
             )
 
     MemoryMode = params.allEnums["MemoryMode"]
+    print("aatman:")
+    print(MemoryMode)
     try:
         memory_mode = MemoryMode(memory_mode_name).getValue()
     except KeyError:
         raise RuntimeError("Invalid memory mode (%s)" % memory_mode_name)
 
+    print(memory_mode)
     drain()
 
     # Now all of the CPUs are ready to be switched out
@@ -398,12 +405,15 @@ def switchCpus(system, cpuList, verbose=True):
     # Change the memory mode if required. We check if this is needed
     # to avoid printing a warning if no switch was performed.
     if system.getMemoryMode() != memory_mode:
+        print("aatman:")
+        print(system.getMemoryMode())
         # Flush the memory system if we are switching to a memory mode
         # that disables caches. This typically happens when switching to a
         # hardware virtualized CPU.
         if memory_mode == MemoryMode("atomic_noncaching").getValue():
             memWriteback(system)
             memInvalidate(system)
+            print ("aatman: flushing the memory system")
 
         _changeMemoryMode(system, memory_mode)
 

@@ -276,8 +276,10 @@ def scriptCheckpoints(options, maxtick, cptdir):
 
 
 def benchCheckpoints(options, maxtick, cptdir):
+    print("aatman: inside benchCheckpoints")
     exit_event = m5.simulate(maxtick - m5.curTick())
     exit_cause = exit_event.getCause()
+    print("aatman: " + exit_cause)
 
     num_checkpoints = 0
     max_checkpoints = options.max_checkpoints
@@ -589,7 +591,8 @@ def run(options, root, testsys, cpu_class):
             TimingSimpleCPU(switched_out=True, cpu_id=(i)) for i in range(np)
         ]
         switch_cpus_1 = [
-            DerivO3CPU(switched_out=True, cpu_id=(i)) for i in range(np)
+            #DerivO3CPU(switched_out=True, cpu_id=(i)) for i in range(np)
+            TimingSimpleCPU(switched_out=True, cpu_id=(i)) for i in range(np)
         ]
 
         for i in range(np):
@@ -728,12 +731,14 @@ def run(options, root, testsys, cpu_class):
 
     if options.standard_switch or cpu_class:
         if options.standard_switch:
+            print("aatman: before fastforward: standard switchin enabled")
             print(
                 "Switch at instruction count:%s"
                 % str(testsys.cpu[0].max_insts_any_thread)
             )
             exit_event = m5.simulate()
         elif cpu_class and options.fast_forward:
+            print("aatman: before fastforward: standard switchin disabled")
             print(
                 "Switch at instruction count:%s"
                 % str(testsys.cpu[0].max_insts_any_thread)
@@ -743,10 +748,15 @@ def run(options, root, testsys, cpu_class):
             print("Switch at curTick count:%s" % str(10000))
             exit_event = m5.simulate(10000)
         print("Switched CPUS @ tick %s" % (m5.curTick()))
+        print("aatman: fastforward completed")
 
+        for cpu in switch_cpu_list:
+            print("switching to ")
+            print(cpu)
         m5.switchCpus(testsys, switch_cpu_list)
 
         if options.standard_switch:
+            print("aatman: inside standard_switch after fastfoward")
             print(
                 "Switch at instruction count:%d"
                 % (testsys.switch_cpus[0].max_insts_any_thread)
@@ -754,16 +764,18 @@ def run(options, root, testsys, cpu_class):
 
             # warmup instruction count may have already been set
             if options.warmup_insts:
+                print("aatman: warmup insts given, warming up...")
                 exit_event = m5.simulate()
             else:
                 exit_event = m5.simulate(options.standard_switch)
+            print("warmup completed")
             print("Switching CPUS @ tick %s" % (m5.curTick()))
             print(
                 "Simulation ends instruction count:%d"
                 % (testsys.switch_cpus_1[0].max_insts_any_thread)
             )
             m5.switchCpus(testsys, switch_cpu_list1)
-
+            print("aatman: done switching cpus")
     # If we're taking and restoring checkpoints, use checkpoint_dir
     # option only for finding the checkpoints to restore from.  This
     # lets us test checkpointing by restoring from one set of
@@ -771,13 +783,14 @@ def run(options, root, testsys, cpu_class):
     if (
         options.take_checkpoints or options.take_simpoint_checkpoints
     ) and options.checkpoint_restore:
-
+        print("aatman: 1")
         if m5.options.outdir:
             cptdir = m5.options.outdir
         else:
             cptdir = getcwd()
 
     if options.take_checkpoints != None:
+        print("aatman: taking checkpoints")
         # Checkpoints being taken via the command line at <when> and at
         # subsequent periods of <period>.  Checkpoint instructions
         # received from the benchmark running are ignored and skipped in
@@ -786,10 +799,12 @@ def run(options, root, testsys, cpu_class):
 
     # Take SimPoint checkpoints
     elif options.take_simpoint_checkpoints != None:
+        print("aatman: taking simpoint checkpoints")
         takeSimpointCheckpoints(simpoints, interval_length, cptdir)
 
     # Restore from SimPoint checkpoints
     elif options.restore_simpoint_checkpoint:
+        print("aatman: restoring simpoint checkpoints")
         restoreSimpointCheckpoint()
 
     else:

@@ -228,9 +228,16 @@ Options.addSEOptions(parser)
 
 parser.add_argument(
     "--dram-cache",
-    type=bool,
-    default=False,
+    type=int,
+    default=0,
     help="Enable/Disable DRAM cache"
+)
+
+parser.add_argument(
+    "--warmup_insts", 
+    type=int, 
+    default="100000000", 
+    help="warmpup instructions"
 )
 
 parser.add_argument(
@@ -385,7 +392,7 @@ if args.simpoint_profile:
         fatal("SimPoint generation not supported with more than one CPUs")
 
 for i in range(np):
-    #system.cpu[i].max_insts_any_thread=args.maxinsts
+    system.cpu[i].max_insts_any_thread=args.maxinsts
     #if args.smt:
     #    system.cpu[i].workload = multiprocesses
     #elif len(multiprocesses) == 1:
