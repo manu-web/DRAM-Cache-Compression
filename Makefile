@@ -6,7 +6,7 @@ BENCHMARKS = $(TOPDIR)/benchmarks
 SIMPDIR = $(TOPDIR)/SimPoint.3.2
 SIMPBIN = $(SIMPDIR)/bin/simpoint
 
-BENCH = saxpy
+BENCH = gcc
 GEM5OUT = $(BENCH)
 BENCHTOPDIR = $(OUTDIR)/$(GEM5OUT)
  
