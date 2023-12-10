@@ -56,6 +56,7 @@ PolicyManager::PolicyManager(const PolicyManagerParams &p):
     alwaysHit(p.always_hit), alwaysDirty(p.always_dirty),
     ltt_table_size(p.ltt_table_size),
     inst_based_MAP_table_size(p.inst_based_MAP_table_size),
+    inst_based_MAP_bit_vector_size(p.inst_based_MAP_bit_vector_size),
     bypassDcache(p.bypass_dcache),
     frontendLatency(p.static_frontend_latency),
     backendLatency(p.static_backend_latency),
@@ -85,7 +86,7 @@ PolicyManager::PolicyManager(const PolicyManagerParams &p):
     for(int i = 0; i<ltt_table_size; i++) last_time_table[i] = false;
 
     //Init instruction based MAP table to false
-    for(int i = 0; i<inst_based_MAP_table_size; i++) inst_based_MAP_table[i] = false;
+    for(int i = 0; i<inst_based_MAP_table_size; i++) inst_based_MAP_table[i] = 0;
 
 }
 
@@ -175,8 +176,8 @@ bool
 PolicyManager::recvTimingReq(PacketPtr pkt)
 {
     //TODO MANU : Need to add it back
-    //bypassDcache = read_MAPI(pkt->getAddr());
-    if (bypassDcache) {
+    pkt->bypass_dcache = read_MAPI(pkt->getAddr());
+    if (pkt->bypass_dcache) {
         //TODO MANU - Add predictor
         DPRINTF(PolicyManager, "Sending Req to memory");
         return farReqPort.sendTimingReq(pkt);
@@ -236,18 +237,24 @@ PolicyManager::recvTimingReq(PacketPtr pkt)
 
     if (pkt->isRead()) {
         //TODO MANU - Add DICE predictor
-        pkt->predCompressible = (curTick()%128 == 0)? true : false;
+        //pkt->predCompressible = (curTick()%128 == 0)? true : false;
+        pkt->predCompressible = read_LTT(pkt->getAddr());
         pkt->compressed_index =  (pkt->getAddr()%(blockSize*2) / blockSize);
 
         access(pkt);//Experiment
         //DAN: We need the compressibility check here as well
+
         if(pkt->getAddr()%128 == 0) pkt->isCompressible = true;
+
+        //Updating LTT based on is_Compressible of read request
+        if(pkt->isCompressible)
+            update_LTT(pkt->getAddr(),true);
+        else
+            update_LTT(pkt->getAddr(),false);
 
         //Experimenting 
         DPRINTF(PolicyManager, "Read: request %s addr 0x%x | Prediction =  %d | Actual = %d \n",
             pkt->cmdString(), pkt->getAddr(), pkt->predCompressible, pkt->isCompressible);
-
-        //pkt->predCompressible = read_LTT(pkt->getAddr()); Pushed in the changes checking something
 
         if (isInWriteQueue.find(pkt->getAddr()) != isInWriteQueue.end()) {
 
@@ -620,7 +627,9 @@ PolicyManager::locMemRecvTimingResp(PacketPtr pkt)
 bool
 PolicyManager::farMemRecvTimingResp(PacketPtr pkt)
 {
-    if (bypassDcache) {
+    //pkt->bypass_dcache = read_MAPI(pkt->getAddr());
+    //DPRINTF(PolicyManager, "read_MAPI : addr 0x%0x bypass_dcache %0d \n",pkt->getAddr(),pkt->bypass_dcache);
+    if (pkt->bypass_dcache) {
         DPRINTF(PolicyManager, "Sending Resp back to source");
         access(pkt); //NS: Required since the actual data is supplied by the policyManager
 
@@ -1424,6 +1433,14 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
     if(pkt->getAddr()%128 == 0) pkt->isCompressible = true;
     pkt->compressed_index =  (pkt->getAddr()%(blockSize*2) / blockSize);
 
+    // MM : Pushed in the changes but will enable later
+    if(!pkt->isRead()){
+        if(pkt->isCompressible)
+            update_LTT(pkt->getAddr(),true);
+        else
+            update_LTT(pkt->getAddr(),false);
+    }
+
     //if(pkt->isRead()) access(pkt);//Experiment - Already done earlier
     DPRINTF(PolicyManager, "Request for Addr = %x => isCompressible = %d\n", pkt->getAddr(), pkt->isCompressible);
 
@@ -1445,9 +1462,10 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
             }
 
             // TODO : Need to add back
-            //if(NormHit || BaiHit)
-            //    update_MAPI(pkt->getAddr(),true);
-
+            if(NormHit || BaiHit)
+                update_MAPI(pkt->getAddr(),true);
+            else
+                update_MAPI(pkt->getAddr(),false);
         }
         else { //Prediction = BAI | Actual = TSI
             bool BaiHit = checkHit(pkt, returnTagDC(pkt->getAddr(), pkt->getSize()), returnBAIDC(pkt->getAddr(), pkt->getSize()), 1);
@@ -1461,8 +1479,10 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
             }
 
             // TODO : Need to add back
-            //if(NormHit || BaiHit)
-            //    update_MAPI(pkt->getAddr(),true);
+            if(NormHit || BaiHit)
+                update_MAPI(pkt->getAddr(),true);
+            else
+                update_MAPI(pkt->getAddr(),false);
         }
 
     }
@@ -1517,13 +1537,6 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
                          frontendLatency + backendLatency);
         }
         else access(pkt);
-
-        /*/ MM : Pushed in the changes but will enable later
-        if(pkt->isCompressible)
-            update_LTT(pkt->getAddr(),true);
-        else
-            update_LTT(pkt->getAddr(),false);
-        */
 
         ORB.at(copyOwPkt->getAddr()) = new reqBufferEntry(
                                             orbEntry->validEntry,
@@ -2046,9 +2059,10 @@ void PolicyManager::update_LTT(Addr request_addr, bool is_read_data_compressible
     // TODO : MM : Assumed a page size of 4096 for now, will replace it with page size
 
     Addr page_number = request_addr>>12;
-    bool predicted_compressible = last_time_table[ltt_hash_fn(page_number) % ltt_table_size];
-    last_time_table[ltt_hash_fn(page_number) % ltt_table_size] = is_read_data_compressible;
-    DPRINTF(PolicyManager, "update_LTT: Addr 0x%x, Page no. 0x%0x, predicted_compressible %0d, actual_compressible %0d \n",request_addr,page_number,predicted_compressible,is_read_data_compressible);
+    Addr table_idx = ltt_hash_fn(page_number) % ltt_table_size;
+    bool predicted_compressible = last_time_table[table_idx];
+    last_time_table[table_idx] = is_read_data_compressible;
+    DPRINTF(PolicyManager, "update_LTT: Addr 0x%x, Page no. 0x%0x, table idx %0d, predicted_compressible %0d, actual_compressible %0d \n",request_addr,page_number,table_idx,predicted_compressible,is_read_data_compressible);
 
     return;
 }
@@ -2058,14 +2072,16 @@ bool PolicyManager::read_MAPI(Addr request_addr) {
     // Apply hash function and take modulo to fit into the inst_based_MAP_table_size
 
     bool bypass_dcache;
-    int mapi_cnt_value = inst_based_MAP_table[inst_based_MAP_hash_fn(request_addr) % inst_based_MAP_table_size];
-    bypass_dcache = mapi_cnt_value%int(std::pow(2, inst_based_MAP_bit_vector_size-1));
-    DPRINTF(PolicyManager, "read_MAPI: Addr 0x%x, mapi_cnt_value %0d, bypass_dcache %0d \n",request_addr,mapi_cnt_value,bypass_dcache);
+    Addr mapi_table_index;
+    mapi_table_index = inst_based_MAP_hash_fn(request_addr) % inst_based_MAP_table_size;
+    int mapi_cnt_value = inst_based_MAP_table[mapi_table_index];
+    bypass_dcache = mapi_cnt_value/int(std::pow(2, inst_based_MAP_bit_vector_size-1));
+    DPRINTF(PolicyManager, "read_MAPI: Addr 0x%x, mapi_cnt_value %0d, mapi_table_index %0d, bypass_dcache %0d \n",request_addr,mapi_cnt_value,mapi_table_index,bypass_dcache);
 
     return bypass_dcache;
 }
 
-void PolicyManager::increment_MAPI_count(Addr request_addr, bool is_dram_cache_hit=false) {
+void PolicyManager::update_MAPI_count(Addr request_addr, bool is_dram_cache_hit=false) {
 
     Addr mapi_table_index;
 
@@ -2088,9 +2104,12 @@ void PolicyManager::update_MAPI(Addr request_addr, bool is_dram_cache_hit=false)
 
     // Apply hash function and take modulo to fit into the inst_based_MAP_table_size
 
-    bool predicted_bypass_dcache = inst_based_MAP_table[inst_based_MAP_hash_fn(request_addr) % inst_based_MAP_table_size]%int(std::pow(2, inst_based_MAP_bit_vector_size-1));
-    increment_MAPI_count(request_addr,is_dram_cache_hit);
-    DPRINTF(PolicyManager, "update_MAPI: Addr 0x%x, predicted_bypass_dcache %0d, is_dram_cache_hit %0d \n",request_addr,predicted_bypass_dcache,is_dram_cache_hit);
+    Addr mapi_table_index;
+    mapi_table_index = inst_based_MAP_hash_fn(request_addr) % inst_based_MAP_table_size;
+
+    bool predicted_bypass_dcache = inst_based_MAP_table[mapi_table_index]%int(std::pow(2, inst_based_MAP_bit_vector_size-1));
+    update_MAPI_count(request_addr,is_dram_cache_hit);
+    DPRINTF(PolicyManager, "update_MAPI: Addr 0x%x, predicted_bypass_dcache %0d, mapi_table_index %0d, is_dram_cache_hit %0d \n",request_addr,predicted_bypass_dcache,mapi_table_index,is_dram_cache_hit);
 
     return;
 }

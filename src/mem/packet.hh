@@ -299,7 +299,7 @@ class Packet : public Printable
     bool predCompressible = false;
     int compressed_index = 0;
     int latencyFactor = 1;
-
+    bool bypass_dcache = false; //MM: By default assuming that there will be a hit in DRAM cache
 
   private:
     enum : FlagsType

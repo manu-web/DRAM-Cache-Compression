@@ -392,7 +392,7 @@ class PolicyManager : public AbstractMemory
     void update_LTT(Addr request_addr, bool is_read_data_compressible); // Updates LTT with the status from true compressiblity algorithm when data is received
     bool read_MAPI(Addr request_addr); // Returns whether the access should follow SAM/PAM(bypass Dcache or not)
     void update_MAPI(Addr request_addr, bool is_dram_cache_hit); // Updates MAPI with the status whether the request to the DRAM Cache was a hit or a miss.
-    void increment_MAPI_count(Addr request_addr, bool is_dram_cache_hit); // Increments counter value for bypass Dcache prediction
+    void update_MAPI_count(Addr request_addr, bool is_dram_cache_hit); // Updates counter value for bypass Dcache prediction
 
     // port management
     void locMemRecvReqRetry();
