@@ -48,6 +48,10 @@
 #include "base/trace.hh"
 #include "base/types.hh"
 #include "enums/Policy.hh"
+#include "mem/cache/compressors/base.hh"
+#include "mem/cache/compressors/dictionary_compressor.hh"
+#include "mem/cache/compressors/dictionary_compressor_impl.hh"
+#include "mem/cache/compressors/fpc.hh"
 #include "mem/mem_ctrl.hh"
 #include "mem/mem_interface.hh"
 #include "mem/packet.hh"
@@ -216,6 +220,12 @@ class PolicyManager : public AbstractMemory
 
     //MM : Adding a param for the bit vector size used in the instruction based MAP for bypass Dcache predictor
     int inst_based_MAP_bit_vector_size; // MM : Default is 3 in the Alloy Cache paper
+
+    // Two compressors, first is FPC, second is BDI.
+    // DICE sees which compresses better and then uses that compressor.
+    compression::Base* fpc_compressor;
+    compression::Base* bdi_compressor;
+
 
     /** Different states a packet can transition from one
      * to the other while it's process in the DRAM Cache
@@ -393,6 +403,10 @@ class PolicyManager : public AbstractMemory
     bool read_MAPI(Addr request_addr); // Returns whether the access should follow SAM/PAM(bypass Dcache or not)
     void update_MAPI(Addr request_addr, bool is_dram_cache_hit); // Updates MAPI with the status whether the request to the DRAM Cache was a hit or a miss.
     void update_MAPI_count(Addr request_addr, bool is_dram_cache_hit); // Updates counter value for bypass Dcache prediction
+    bool isCacheLineCompressible(PacketPtr pkt);
+
+    // size_t compressible_checks_counter = 0;
+    // size_t num_compressible_counter = 0;
 
     // port management
     void locMemRecvReqRetry();

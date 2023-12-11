@@ -203,6 +203,10 @@ class Base : public SimObject
     Base(const Params &p);
     virtual ~Base() = default;
 
+    virtual size_t getBlockSize() const {
+        return blkSize;
+    }
+
     /** The cache can only be set once. */
     virtual void setCache(BaseCache *_cache);
 

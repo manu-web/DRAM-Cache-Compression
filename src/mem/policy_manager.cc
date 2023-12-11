@@ -40,6 +40,47 @@ namespace gem5
 namespace memory
 {
 
+bool meetsPrintCriteria(PacketPtr pkt) {
+    size_t pkt_size = pkt->getSize();
+    uint8_t * ptr = pkt->getPtr<uint8_t>();
+    int counter = 0;
+
+    // uint8_t initial_data = *ptr;
+    // ptr++;
+    // if (initial_data >= 'A' && initial_data <= 'Z') {
+    //     for (unsigned int i = 1; i < pkt_size; i++) {
+    //         uint8_t data = *ptr;
+    //         if (data == initial_data) {
+    //             counter++;
+    //         }
+    //         ptr++;
+    //     }
+    // }
+
+    for (unsigned int i = 0; i < pkt_size; i++) {
+        uint8_t data = *ptr;
+        if (data >= 'E' && data <= 'H') {
+            counter++;
+        }
+        ptr++;
+    }
+
+    return counter > 62;
+}
+
+void printPacketAsChar(PacketPtr pkt) {
+    size_t pkt_size = pkt->getSize();
+    uint8_t * ptr = pkt->getPtr<uint8_t>();
+
+    printf("packet: ");
+    for (unsigned int i = 0; i < pkt_size; i++) {
+        uint8_t data = *ptr;
+        printf("%c", data);
+        ptr++;
+    }
+    printf("\n");
+}
+
 PolicyManager::PolicyManager(const PolicyManagerParams &p):
     AbstractMemory(p),
     port(name() + ".port", *this),
@@ -65,6 +106,8 @@ PolicyManager::PolicyManager(const PolicyManagerParams &p):
     tRL(p.tRL),
     numColdMisses(0),
     cacheWarmupRatio(p.cache_warmup_ratio),
+    fpc_compressor(p.fpc_compressor),
+    bdi_compressor(p.bdi_compressor),
     resetStatsWarmup(false),
     retryLLC(false), retryLLCFarMemWr(false),
     retryLocMemRead(false), retryFarMemRead(false),
@@ -88,6 +131,16 @@ PolicyManager::PolicyManager(const PolicyManagerParams &p):
     //Init instruction based MAP table to false
     for(int i = 0; i<inst_based_MAP_table_size; i++) inst_based_MAP_table[i] = 0;
 
+    // Init compressors for DICE
+    // fpc_compressor = 
+    // bdi_compressor = 
+
+    if (fpc_compressor != nullptr) {
+        printf("FPC compressor block size: %lu\n", fpc_compressor->getBlockSize());
+    }
+    if (bdi_compressor != nullptr) {
+        printf("BDI compressor block size: %lu\n", bdi_compressor->getBlockSize());
+    }
 }
 
 Tick
@@ -252,9 +305,8 @@ PolicyManager::recvTimingReq(PacketPtr pkt)
 
         access(pkt);//Experiment
         //DAN: We need the compressibility check here as well
-
-        if(pkt->getAddr()%128 == 0) pkt->isCompressible = true;
-
+        pkt->isCompressible = isCacheLineCompressible(pkt);
+        
         //Updating LTT based on is_Compressible of read request
         if(pkt->isCompressible)
             update_LTT(pkt->getAddr(),true);
@@ -1437,9 +1489,10 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
     //Because the index to be used - BAI or Normal - would be decided based on that
     //TODO: DAN - Add Compressibility check here - for Writes
     //NS: Experimenting with always compressible
-    if(!pkt->isRead())access(pkt); //Needed for Writes
-    
-    if(pkt->getAddr()%128 == 0) pkt->isCompressible = true;
+    if(!pkt->isRead()) {
+        pkt->isCompressible = isCacheLineCompressible(pkt);
+        access(pkt); //Needed for Writes
+    }
     pkt->compressed_index =  (pkt->getAddr()%(blockSize*2) / blockSize);
 
     // MM : Pushed in the changes but will enable later
@@ -2172,6 +2225,52 @@ PolicyManager::handleDirtyCacheLine(reqBufferEntry* orbEntry)
     }
 
     polManStats.numWrBacks++;
+}
+
+bool
+PolicyManager::isCacheLineCompressible(PacketPtr pkt)
+{
+    uint64_t* data_ptr = pkt->getPtr<uint64_t>();
+    size_t data_size = pkt->getSize();
+    // assert(data_size % 8 == 0);
+
+    Cycles compression_lat = Cycles(0);
+    Cycles decompression_lat = Cycles(0);
+    std::unique_ptr<compression::Base::CompressionData> compressed_data;
+    size_t bdi_compressed_bits = 0;
+    size_t fpc_compressed_bits = 0;
+
+    // printf("COMPRESSING WTIH BDI\n");
+    compressed_data =
+        bdi_compressor->compress(data_ptr, compression_lat, decompression_lat);
+    bdi_compressed_bits = compressed_data->getSizeBits();
+    // printf("Compressed bits: %lu\n", bdi_compressed_bits);
+
+
+    // printf("COMPRESSING WITH FPC\n");
+    compressed_data =
+        fpc_compressor->compress(data_ptr, compression_lat, decompression_lat);
+    fpc_compressed_bits = compressed_data->getSizeBits();
+    // printf("Compressed bits: %lu\n", fpc_compressed_bits);
+
+    const size_t dice_compression_threshold_bits = 36 * 8; // 36 bytes * 8 bits
+
+    // compressible_checks_counter++;
+    if (bdi_compressed_bits < dice_compression_threshold_bits ||
+        fpc_compressed_bits < dice_compression_threshold_bits) {
+            // printf("CACHE LINE IS COMPRESSIBLE\n");
+            // num_compressible_counter++;
+            // if (compressible_checks_counter % 1000 == 0) {
+            //     printf("Compressed / compressible checks = %lu / %lu\n",
+            //         num_compressible_counter, compressible_checks_counter);
+            // }
+            return true;
+    }
+    // if (compressible_checks_counter % 1000 == 0) {
+    //     printf("Compressed / compressible checks = %lu / %lu\n",
+    //         num_compressible_counter, compressible_checks_counter);
+    // }
+    return false;
 }
 
 void
