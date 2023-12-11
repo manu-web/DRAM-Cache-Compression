@@ -15,8 +15,9 @@ ifdef DBG_FLAGS
 	DBG += $(DBG_FLAGS)
 endif
 
-MAXINSTS = 10000000000
-WARMPUP = 100000000
+MAXINSTS = 500000000
+WARMUP = 100000000
+FFINSTS = 100000000
 CPU_TYPE = X86O3CPU
 SIMP_FLAGS =
 COMMON_CONFIG_ARGS = 
@@ -32,8 +33,11 @@ CHKP_IDX = 1
 BBVDIR = $(BENCHTOPDIR)/bbv
 CHKPDIR = $(BENCHTOPDIR)/chkpt
 
+SIMPOINTS = $(BENCHTOPDIR)/$(BENCH).simpoint
+SIMPWEIGHTS = $(BENCHTOPDIR)/$(BENCH).weight
+
+SIMP_INT = 100000000
 ifeq ($(BBV), 1)
-	SIMP_INT = 1000000000
 	SIMP_FLAGS += --simpoint-profile
 	SIMP_FLAGS += --simpoint-interval $(SIMP_INT)
 	CPU_TYPE := NonCachingSimpleCPU
@@ -46,36 +50,43 @@ else ifeq ($(CHKP), 1)
 	DUMPDIR = $(CHKPDIR)
 else
 	ifeq ($(DC), 1)
-		DRAM_CACHE = True
+		DRAM_CACHE = $(DC) 
 		DUMPDIR = $(BENCHTOPDIR)/dc
-		COMMON_CONFIG_ARGS += --dram-cache $(DRAM_CACHE)
 	else
-		DRAM_CACHE = False
+		DRAM_CACHE = $(DC)
 		DUMPDIR = $(BENCHTOPDIR)/base
 	endif
-	SIMP_FLAGS += --restore-simpoint-checkpoint -r $(CHKP_IDX) --checkpoint-dir $(CHKPDIR) 
+	ifeq ($(FF), 1)
+		SIMP_FLAGS += --fast-forward $(FFINSTS) 
+	else
+		SIMP_FLAGS += --restore-simpoint-checkpoint -r $(CHKP_IDX) --checkpoint-dir $(CHKPDIR) 
+	endif
 endif
 
-SIMPOINTS = $(BENCHTOPDIR)/$(BENCH).simpoint
-SIMPWEIGHTS = $(BENCHTOPDIR)/$(BENCH).weight
-
-COMMON_CONFIG_ARGS += --cpu-type=$(CPU_TYPE) $(L1CACHE) $(L2CACHE) --maxinsts $(MAXINSTS) --mem-size '8GiB'
+COMMON_CONFIG_ARGS += --cpu-type=$(CPU_TYPE) $(L1CACHE) $(L2CACHE) --mem-size '8GiB' --maxinsts=$(MAXINSTS) --warmup_insts=$(WARMUP) --dram-cache=$(DRAM_CACHE)
 
 simulate:
+	build/X86/gem5.opt $(DBG) --outdir=$(DUMPDIR) configs/example/dram_cache.py $(COMMON_CONFIG_ARGS) --benchmark $(BENCH) --benchmark-stdout $(DUMPDIR)/$(BENCH).out --benchmark-stderr $(DUMPDIR)/$(BENCH).err $(SIMP_FLAGS) >| $(OUTDIR)/$(BENCH)_dc$(DC)_sim.out
+	mv $(OUTDIR)/$(BENCH)_dc$(DC)_sim.out $(DUMPDIR)/
+
+simpoint:
+	$(SIMPBIN) -loadFVFile $(BENCHTOPDIR)/bbv/simpoint.bb -maxK 30 -saveSimpoints $(SIMPOINTS) -saveSimpointWeights $(SIMPWEIGHTS) 
+
+valgrind:
+	valgrind --tool=exp-bbv $(CMD) --bb-out-file=$(BENCHTOPDIR)/bbv/$(BENCH).bb
+
+fastfwd:
 	build/X86/gem5.opt $(DBG) --outdir=$(DUMPDIR) configs/example/dram_cache.py $(COMMON_CONFIG_ARGS) --benchmark $(BENCH) --benchmark-stdout $(DUMPDIR)/$(BENCH).out --benchmark-stderr $(DUMPDIR)/$(BENCH).err $(SIMP_FLAGS) >| $(OUTDIR)/$(BENCH)_sim.out
 	mv $(OUTDIR)/$(BENCH)_sim.out $(DUMPDIR)/
 
-simpoint:
-	$(SIMPBIN) -loadFVFile $(BENCHTOPDIR)/bbv/simpoint.bb.gz -maxK 30 -saveSimpoints $(SIMPOINTS) -saveSimpointWeights $(SIMPWEIGHTS) -inputVectorsGzipped
-
 simulate_test:
-	build/X86/gem5.opt $(DBG) --outdir=$(DUMPDIR) configs/example/dram_cache.py $(COMMON_CONFIG_ARGS) --cmd=$(BENCHMARKS)/$(BENCH)/$(BENCH).exe $(SIMP_FLAGS) >| $(OUTDIR)/$(BENCH).out
+	build/X86/gem5.opt $(DBG) --outdir=$(DUMPDIR) configs/example/dram_cache.py $(COMMON_CONFIG_ARGS) --cmd=$(BENCHMARKS)/$(BENCH)/$(BENCH).exe $(SIMP_FLAGS) >| $(OUTDIR)/$(BENCH)_sim.out
 
 simpoint_test:
 	$(SIMPBIN) -loadFVFile $(DUMPDIR)/simpoint.bb.gz -maxK 30 -saveSimpoints $(SIMPOINTS) -saveSimpointWeights $(SIMPWEIGHTS) -inputVectorsGzipped
 
 checkpoint_test:
-	build/X86/gem5.opt $(DBG) --outdir=$(DUMPDIR)/chkpt configs/example/dram_cache.py $(COMMON_CONFIG_ARGS) --cmd=$(BENCHMARKS)/$(BENCH)/$(BENCH).exe $(CHKP_FLAGS) >| $(OUTDIR)/$(BENCH).out
+	build/X86/gem5.opt $(DBG) --outdir=$(DUMPDIR)/chkpt configs/example/dram_cache.py $(COMMON_CONFIG_ARGS) --cmd=$(BENCHMARKS)/$(BENCH)/$(BENCH).exe $(CHKP_FLAGS) >| $(OUTDIR)/$(BENCH)_sim.out
 
 saxpy:
 	g++ -march=native -O0 $(BENCHMARKS)/saxpy/saxpy.cpp -o $(BENCHMARKS)/saxpy/saxpy.exe

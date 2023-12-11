@@ -228,9 +228,16 @@ Options.addSEOptions(parser)
 
 parser.add_argument(
     "--dram-cache",
-    type=bool,
-    default=False,
+    type=int,
+    default=0,
     help="Enable/Disable DRAM cache"
+)
+
+parser.add_argument(
+    "--warmup_insts", 
+    type=int, 
+    default="100000000", 
+    help="warmpup instructions"
 )
 
 parser.add_argument(
@@ -477,6 +484,14 @@ elif args.dram_cache:
     # CRB is Conflicting Request Buffer, a buffer for serializing the outstanding requests that map to the same cache location.
     system.mem_ctrl.crb_max_size = "32"
     system.mem_ctrl.port = system.membus.mem_side_ports
+    
+    # Add compressors to Policy Manager
+    fpc = FPC()
+    system.mem_ctrl.fpc_compressor = fpc
+
+    bdi = BDI()
+    system.mem_ctrl.bdi_compressor = bdi
+
 
     system.loc_mem_ctrl = HBMCtrl()
     system.loc_mem_ctrl.dram = HBM_2000_4H_1x64(range=AddrRange('1GiB'), in_addr_map=False, null=True)
