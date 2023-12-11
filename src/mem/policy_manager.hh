@@ -505,6 +505,16 @@ class PolicyManager : public AbstractMemory
       Stats::Scalar numWrongPredMISS;
       Stats::Scalar numIndexBAIHIT;
 
+      //DICE compressibility predictor related stats
+      Stats::Scalar numOfTimesDicePredictorCorrect;
+      Stats::Scalar numOfTimesDicePredictorIncorrect;
+      Stats::Formula accuracyOfDicePredictor;
+
+      //bypass DRAM Cache predictor related stats
+      Stats::Scalar numOfTimesBypassDcachePredictorCorrect;
+      Stats::Scalar numOfTimesBypassDcachePredictorIncorrect;
+      Stats::Formula accuracyOfBypassDcachePredictor;
+
     };
 
     PolicyManagerStats polManStats;

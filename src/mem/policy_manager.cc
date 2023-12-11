@@ -2139,6 +2139,12 @@ void PolicyManager::update_LTT(Addr request_addr, bool is_read_data_compressible
     Addr page_number = request_addr>>12;
     Addr table_idx = ltt_hash_fn(page_number) % ltt_table_size;
     bool predicted_compressible = last_time_table[table_idx];
+
+    if(predicted_compressible == is_read_data_compressible)
+        polManStats.numOfTimesDicePredictorCorrect++;
+    else
+        polManStats.numOfTimesDicePredictorIncorrect++;
+
     last_time_table[table_idx] = is_read_data_compressible;
     DPRINTF(PolicyManager, "update_LTT: Addr 0x%x, Page no. 0x%0x, table idx %0d, predicted_compressible %0d, actual_compressible %0d \n",request_addr,page_number,table_idx,predicted_compressible,is_read_data_compressible);
 
@@ -2185,7 +2191,13 @@ void PolicyManager::update_MAPI(Addr request_addr, bool is_dram_cache_hit=false)
     Addr mapi_table_index;
     mapi_table_index = inst_based_MAP_hash_fn(request_addr) % inst_based_MAP_table_size;
 
-    bool predicted_bypass_dcache = inst_based_MAP_table[mapi_table_index]%int(std::pow(2, inst_based_MAP_bit_vector_size-1));
+    bool predicted_bypass_dcache = inst_based_MAP_table[mapi_table_index]/int(std::pow(2, inst_based_MAP_bit_vector_size-1));
+
+    if(predicted_bypass_dcache != is_dram_cache_hit)
+        polManStats.numOfTimesBypassDcachePredictorCorrect++;
+    else
+        polManStats.numOfTimesBypassDcachePredictorIncorrect++;
+
     update_MAPI_count(request_addr,is_dram_cache_hit);
     DPRINTF(PolicyManager, "update_MAPI: Addr 0x%x, predicted_bypass_dcache %0d, mapi_table_index %0d, is_dram_cache_hit %0d \n",request_addr,predicted_bypass_dcache,mapi_table_index,is_dram_cache_hit);
 
@@ -2370,9 +2382,30 @@ PolicyManager::PolicyManagerStats::PolicyManagerStats(PolicyManager &_polMan)
 
     ADD_STAT(totGap, statistics::units::Tick::get(),
              "Total gap between requests"),
+
     ADD_STAT(avgGap, statistics::units::Rate<
                 statistics::units::Tick, statistics::units::Count>::get(),
              "Average gap between requests"),
+
+    ADD_STAT(numOfTimesDicePredictorCorrect, statistics::units::Tick::get(),
+             "Number of correct predictions by the DICE predictor"),
+
+    ADD_STAT(numOfTimesDicePredictorIncorrect, statistics::units::Tick::get(),
+             "Number of incorrect predictions by the DICE predictor"),
+
+    ADD_STAT(accuracyOfDicePredictor, statistics::units::Rate<
+                statistics::units::Tick, statistics::units::Count>::get(),
+             "Accuracy of the DICE predictor"),
+
+    ADD_STAT(numOfTimesBypassDcachePredictorCorrect, statistics::units::Tick::get(),
+             "Number of correct predictions by the bypass dcache predictor"),
+
+    ADD_STAT(numOfTimesBypassDcachePredictorIncorrect, statistics::units::Tick::get(),
+             "Number of incorrect predictions by the bypass dcache predictor"),          
+    
+    ADD_STAT(accuracyOfBypassDcachePredictor, statistics::units::Rate<
+                statistics::units::Tick, statistics::units::Count>::get(),
+             "Accuracy of the Bypass Dcache predictor"),
 
     ADD_STAT(avgORBLen, statistics::units::Rate<
                 statistics::units::Count, statistics::units::Tick>::get(),
@@ -2511,12 +2544,17 @@ PolicyManager::PolicyManagerStats::regStats()
     avgRdBWSys.precision(8);
     avgWrBWSys.precision(8);
     avgGap.precision(2);
+    accuracyOfDicePredictor.precision(8);
+    accuracyOfBypassDcachePredictor.precision(8);
 
     // Formula stats
     avgRdBWSys = (bytesReadSys) / simSeconds;
     avgWrBWSys = (bytesWrittenSys) / simSeconds;
 
     avgGap = totGap / (readReqs + writeReqs);
+
+    accuracyOfDicePredictor = numOfTimesDicePredictorCorrect/(numOfTimesDicePredictorCorrect + numOfTimesDicePredictorIncorrect);
+    accuracyOfBypassDcachePredictor = numOfTimesBypassDcachePredictorCorrect/(numOfTimesBypassDcachePredictorCorrect + numOfTimesBypassDcachePredictorIncorrect);
 
 }
 
