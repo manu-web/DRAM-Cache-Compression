@@ -176,7 +176,7 @@ PolicyManager::recvTimingReq(PacketPtr pkt)
 {
     //TODO MANU : Need to add it back
     //bypassDcache = read_MAPI(pkt->getAddr());
-    if (bypassDcache) {
+    if (1/*bypassDcache*/) {
         //TODO MANU - Add predictor
         DPRINTF(PolicyManager, "Sending Req to memory");
         return farReqPort.sendTimingReq(pkt);
@@ -620,7 +620,7 @@ PolicyManager::locMemRecvTimingResp(PacketPtr pkt)
 bool
 PolicyManager::farMemRecvTimingResp(PacketPtr pkt)
 {
-    if (bypassDcache) {
+    if (1/*bypassDcache*/) {
         DPRINTF(PolicyManager, "Sending Resp back to source");
         access(pkt); //NS: Required since the actual data is supplied by the policyManager
 
