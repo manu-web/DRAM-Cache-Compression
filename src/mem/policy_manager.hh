@@ -501,6 +501,9 @@ class PolicyManager : public AbstractMemory
       Stats::Scalar numRdHitClean;
       Stats::Scalar numWrHitDirty;
       Stats::Scalar numWrHitClean;
+      Stats::Scalar numWrongPredHIT;
+      Stats::Scalar numWrongPredMISS;
+      Stats::Scalar numIndexBAIHIT;
 
     };
 

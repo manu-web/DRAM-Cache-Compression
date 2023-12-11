@@ -242,7 +242,7 @@ PolicyManager::recvTimingReq(PacketPtr pkt)
     }
 
     if (pkt->bypass_dcache) {
-        DPRINTF(PolicyManager, "Sending Req to memory");
+        DPRINTF(PolicyManager, "Sending Req to memory\n");
         return farReqPort.sendTimingReq(pkt);
     }
     // This is where we enter from the outside world
@@ -691,7 +691,7 @@ PolicyManager::farMemRecvTimingResp(PacketPtr pkt)
     //pkt->bypass_dcache = read_MAPI(pkt->getAddr());
     //DPRINTF(PolicyManager, "read_MAPI : addr 0x%0x bypass_dcache %0d \n",pkt->getAddr(),pkt->bypass_dcache);
     if (pkt->bypass_dcache) {
-        DPRINTF(PolicyManager, "Sending Resp back to source");
+        DPRINTF(PolicyManager, "Sending Resp back to source\n");
         access(pkt); //NS: Required since the actual data is supplied by the policyManager
 
         port.schedTimingResp(pkt, curTick());
@@ -1521,6 +1521,11 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
             if(BaiHit) {
                 pkt->latencyFactor = 2;
                 DPRINTF(PolicyManager, "For Misprediction of Request Addr = %d | Got BAI HIT - Setting latency factor of 2\n", pkt->getAddr());
+                //TODO NEERAJ - ADD STAT HERE WRONG_PRED_HIT++
+                polManStats.numWrongPredHIT++;
+            }else {
+                //TODO NEERAJ - ADD STAT HERE WRONG_PRED_MISS++
+                polManStats.numWrongPredMISS++;
             }
 
             if(NormHit || BaiHit)
@@ -1537,6 +1542,12 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
             if(NormHit) {
                 pkt->latencyFactor = 2;
                 DPRINTF(PolicyManager, "For Misprediction of Request Addr = %d | Got Normal HIT - Setting latency factor of 2\n", pkt->getAddr());
+                //TODO NEERAJ - ADD STAT HERE WRONG_PRED_HIT++
+                polManStats.numWrongPredHIT++;
+            }else {
+                //TODO NEERAJ - ADD STAT HERE WRONG_PRED_MISS++
+                polManStats.numWrongPredMISS++;
+
             }
 
             if(NormHit || BaiHit)
@@ -1547,7 +1558,13 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
 
     }
     
-
+    //Also update_MAPI when DICE prediction is correct. Basically update it for every request - CHECK MANU?
+    if(pkt->isRead()) {
+        bool BaiHit = checkHit(pkt, returnTagDC(pkt->getAddr(), pkt->getSize()), returnBAIDC(pkt->getAddr(), pkt->getSize()), 1);
+        bool NormHit = checkHit(pkt, returnTagDC(pkt->getAddr(), pkt->getSize()), returnIndexDC(pkt->getAddr(), pkt->getSize()), 0);
+        if(NormHit || BaiHit) update_MAPI(pkt->getAddr(),true);
+        else update_MAPI(pkt->getAddr(),false);
+    }
 
     reqBufferEntry* orbEntry = new reqBufferEntry(
                                 true, curTick(),
@@ -1647,7 +1664,8 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
     else */ 
     if (pkt->isRead() && orbEntry->isHit && pkt->isCompressible && pkt->compressed_index == 1) { //TODO NEERAJ - Try updating this logic
         DPRINTF(PolicyManager, "NS: For Address %d | HIT for compressed index 1 | Setting latencyFactor as 0\n", orbEntry->owPkt->getAddr());
-
+        //TODO NEERAJ - ADD STAT HERE BAI_HIT++
+        polManStats.numIndexBAIHIT++;
         orbEntry->owPkt->latencyFactor = 0;
     }
     //NS: Just to check if this change is reaching accessAndRespond - Verified
@@ -2461,8 +2479,13 @@ PolicyManager::PolicyManagerStats::PolicyManagerStats(PolicyManager &_polMan)
     ADD_STAT(numWrHitDirty,
             "stat"),
     ADD_STAT(numWrHitClean,
-            "stat")
-
+            "stat"),
+    ADD_STAT(numWrongPredHIT,
+            "Incorrect DICE Prediction but HIT in the other index"),        
+    ADD_STAT(numWrongPredMISS,
+            "Incorrect DICE Prediction and MISS in both the indices"),
+    ADD_STAT(numIndexBAIHIT,
+            "Compressed data at index 1 got a HIT - BW Improvement")
 {
 }
 
