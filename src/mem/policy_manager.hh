@@ -46,6 +46,10 @@
 #include "base/trace.hh"
 #include "base/types.hh"
 #include "enums/Policy.hh"
+#include "mem/cache/compressors/base.hh"
+#include "mem/cache/compressors/dictionary_compressor.hh"
+#include "mem/cache/compressors/dictionary_compressor_impl.hh"
+#include "mem/cache/compressors/fpc.hh"
 #include "mem/mem_ctrl.hh"
 #include "mem/mem_interface.hh"
 #include "mem/packet.hh"
@@ -173,6 +177,12 @@ class PolicyManager : public AbstractMemory
     Tick prevArrival;
 
     std::unordered_set<Addr> isInWriteQueue;
+
+    // Two compressors, first is FPC, second is BDI.
+    // DICE sees which compresses better and then uses that compressor.
+    compression::Base* fpc_compressor;
+    compression::Base* bdi_compressor;
+
 
     struct tagMetaStoreEntry
     {

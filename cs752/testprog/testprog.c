@@ -50,16 +50,20 @@ int main(int argc, char *argv[]) {
   char* offset_memory = memory + (mem_size / 2);
 
   // Write to each address location in the allocated memory
-  for (int i = 0; i < iterations; i+=4) {
+  for (int i = 0; i < iterations; i+=8) {
     // Calculate the starting address of the cache block
     char* address = memory + i;
 
     // Write to the address
     // *address = (char)((unsigned long long)address % BLOCK_SIZE);
-    *address = 'E';
-    *(address+1) = 'F';
-    *(address+2) = 'G';
-    *(address+3) = 'H';
+    *address = '\0';
+    *(address+1) = '\0';
+    *(address+2) = '\0';
+    *(address+3) = '\0';
+    *(address+4) = '\0';
+    *(address+5) = '\0';
+    *(address+6) = '\0';
+    *(address+7) = '\0';
 
     // Debugging output to show the write
     // DEBUG_PRINT("Wrote '0x%02x' to address %p\n", (unsigned char)*address, (void*)address);

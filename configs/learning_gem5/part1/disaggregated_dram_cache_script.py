@@ -132,6 +132,15 @@ system.mem_ctrl.orb_max_size = "128"
 system.mem_ctrl.crb_max_size = "32"
 system.mem_ctrl.port = system.membus.mem_side_ports
 
+# Add compressors to Policy Manager
+fpc = FPC()
+# fpc.dict_size = 256
+system.mem_ctrl.fpc_compressor = fpc
+
+bdi = BDI()
+# bdi.dict_size = 256
+system.mem_ctrl.bdi_compressor = bdi
+
 system.loc_mem_ctrl = HBMCtrl()
 system.loc_mem_ctrl.dram = HBM_2000_4H_1x64(range=AddrRange('1GiB'), in_addr_map=False, null=True)
 system.loc_mem_ctrl.dram_2 = HBM_2000_4H_1x64(range=AddrRange('1GiB'), in_addr_map=False, null=True)

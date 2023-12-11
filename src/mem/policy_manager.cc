@@ -43,6 +43,48 @@ namespace gem5
 namespace memory
 {
 
+bool meetsPrintCriteria(PacketPtr pkt) {
+    size_t pkt_size = pkt->getSize();
+    uint8_t * ptr = pkt->getPtr<uint8_t>();
+    int counter = 0;
+
+    // uint8_t initial_data = *ptr;
+    // ptr++;
+    // if (initial_data >= 'A' && initial_data <= 'Z') {
+    //     for (unsigned int i = 1; i < pkt_size; i++) {
+    //         uint8_t data = *ptr;
+    //         if (data == initial_data) {
+    //             counter++;
+    //         }
+    //         ptr++;
+    //     }
+    // }
+
+    for (unsigned int i = 0; i < pkt_size; i++) {
+        uint8_t data = *ptr;
+        if (data >= '\0' && data <= '\0') {
+            counter++;
+        }
+        ptr++;
+    }
+
+    return counter == 64; // > 62
+}
+
+void printPacketAsChar(PacketPtr pkt) {
+    size_t pkt_size = pkt->getSize();
+    uint8_t * ptr = pkt->getPtr<uint8_t>();
+
+    printf("packet: ");
+    for (unsigned int i = 0; i < pkt_size; i++) {
+        uint8_t data = *ptr;
+        printf("%c", data);
+        ptr++;
+    }
+    printf("\n");
+}
+
+
 #define BUF_SIZE 1024
 
 bool snprintf_whole_packet(PacketPtr packet, char * buf, size_t buf_size) {
@@ -104,6 +146,8 @@ PolicyManager::PolicyManager(const PolicyManagerParams &p):
     tRL(p.tRL),
     numColdMisses(0),
     cacheWarmupRatio(p.cache_warmup_ratio),
+    fpc_compressor(p.fpc_compressor),
+    bdi_compressor(p.bdi_compressor),
     resetStatsWarmup(false),
     retryLLC(false), retryLLCFarMemWr(false),
     retryLocMemRead(false), retryFarMemRead(false),
@@ -118,6 +162,17 @@ PolicyManager::PolicyManager(const PolicyManagerParams &p):
     panic_if(orbMaxSize<8, "ORB maximum size must be at least 8.\n");
 
     tagMetadataStore.resize(dramCacheSize/blockSize);
+
+    // Init compressors for DICE
+    // fpc_compressor = 
+    // bdi_compressor = 
+
+    if (fpc_compressor != nullptr) {
+        printf("FPC compressor block size: %lu\n", fpc_compressor->getBlockSize());
+    }
+    if (bdi_compressor != nullptr) {
+        printf("BDI compressor block size: %lu\n", bdi_compressor->getBlockSize());
+    }
 
 }
 
@@ -256,6 +311,32 @@ PolicyManager::recvTimingReq(PacketPtr pkt)
     //bool foundInFarMemWrite = false;
 
     if (pkt->isRead()) {
+
+        // access(pkt);
+        // if (meetsPrintCriteria(pkt)) {
+        //     printPacketAsChar(pkt);
+        //     uint64_t* data_ptr = pkt->getPtr<uint64_t>();
+        //     size_t data_size = pkt->getSize();
+        //     assert(data_size % 8 != 0);
+
+        //     Cycles compression_lat = Cycles(0);
+        //     Cycles decompression_lat = Cycles(0);
+            
+        //     size_t num_chunks = data_size / 8;
+        //     std::size_t compressed_bits = 0;
+        //     for (int i = 0; i < num_chunks; i++) {
+        //         // std::unique_ptr<compression::Base::CompressionData> compressed_data = fpc_compressor->compress(fpc_compressor->toChunks(data_ptr), compression_lat, decompression_lat);
+        //         // fpc_compressor->compressValue()
+
+        //         const auto compressed_data =
+        //             fpc_compressor->compress(data_ptr, compression_lat, decompression_lat);
+                
+        //         compressed_bits += compressed_data->getSizeBits();
+        //         data_ptr++;
+        //         printf("Compressed bits: %lu\n", compressed_bits);
+        //     }
+        // }
+        
 
         if (isInWriteQueue.find(pkt->getAddr()) != isInWriteQueue.end()) {
 
@@ -1456,43 +1537,75 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
     }
 
     if (pkt->isWrite()) {
-        size_t pkt_size = pkt->getSize();
-        uint8_t * ptr = pkt->getPtr<uint8_t>();
-        int counter = 0;
+        // size_t pkt_size = pkt->getSize();
+        // uint8_t * ptr = pkt->getPtr<uint8_t>();
+        // int counter = 0;
         
-        // uint8_t initial_data = *ptr;
-        // ptr++;
-        // if (initial_data >= 'A' && initial_data <= 'Z') {
-        //     for (unsigned int i = 1; i < pkt_size; i++) {
+        // // uint8_t initial_data = *ptr;
+        // // ptr++;
+        // // if (initial_data >= 'A' && initial_data <= 'Z') {
+        // //     for (unsigned int i = 1; i < pkt_size; i++) {
+        // //         uint8_t data = *ptr;
+        // //         if (data == initial_data) {
+        // //             counter++;
+        // //         }
+        // //         ptr++;
+        // //     }
+        // // }
+
+        // for (unsigned int i = 0; i < pkt_size; i++) {
+        //     uint8_t data = *ptr;
+        //     if (data >= 'E' && data <= 'H') {
+        //         counter++;
+        //     }
+        //     ptr++;
+        // }
+        
+        // char buf[BUF_SIZE];
+        // size_t buf_size = sizeof(buf);
+        // if (counter > 62) {
+        //     ptr = pkt->getPtr<uint8_t>();
+        //     printf("packet: ");
+        //     for (unsigned int i = 0; i < pkt_size; i++) {
         //         uint8_t data = *ptr;
-        //         if (data == initial_data) {
-        //             counter++;
-        //         }
+        //         printf("%c", data);
         //         ptr++;
         //     }
+        //     printf("\n");
+        //     // snprintf_whole_packet(pkt, buf, buf_size);
+        //     // printf("packet: %s\n", buf);
         // }
+        if (meetsPrintCriteria(pkt)) {
+            printPacketAsChar(pkt);
+            uint64_t* data_ptr = pkt->getPtr<uint64_t>();
+            size_t data_size = pkt->getSize();
+            assert(data_size % 8 == 0);
 
-        for (unsigned int i = 0; i < pkt_size; i++) {
-            uint8_t data = *ptr;
-            if (data >= 'E' && data <= 'H') {
-                counter++;
-            }
-            ptr++;
-        }
-        
-        char buf[BUF_SIZE];
-        size_t buf_size = sizeof(buf);
-        if (counter > 62) {
-            ptr = pkt->getPtr<uint8_t>();
-            printf("packet: ");
-            for (unsigned int i = 0; i < pkt_size; i++) {
-                uint8_t data = *ptr;
-                printf("%c", data);
-                ptr++;
-            }
-            printf("\n");
-            // snprintf_whole_packet(pkt, buf, buf_size);
-            // printf("packet: %s\n", buf);
+            Cycles compression_lat = Cycles(0);
+            Cycles decompression_lat = Cycles(0);
+            
+            size_t bdi_compressed_bits = 0;
+            size_t fpc_compressed_bits = 0;
+
+            printf("COMPRESSING WTIH BDI\n");
+            std::unique_ptr<compression::Base::CompressionData> compressed_data =
+                bdi_compressor->compress(data_ptr, compression_lat, decompression_lat);
+            bdi_compressed_bits = compressed_data->getSizeBits();
+            printf("Compressed bits: %lu\n", bdi_compressed_bits);
+
+
+            printf("COMPRESSING WITH FPC\n");
+            compressed_data =
+                fpc_compressor->compress(data_ptr, compression_lat, decompression_lat);
+            fpc_compressed_bits = compressed_data->getSizeBits();
+            printf("Compressed bits: %lu\n", fpc_compressed_bits);
+
+            const size_t dice_compression_threshold_bits = 36 * 8; // 36 bytes * 8 bits
+
+            if (bdi_compressed_bits < dice_compression_threshold_bits ||
+                fpc_compressed_bits < dice_compression_threshold_bits) {
+                    printf("CACHE LINE IS COMPRESSIBLE\n");
+                }
         }
 
         PacketPtr copyOwPkt = new Packet(orbEntry->owPkt,
