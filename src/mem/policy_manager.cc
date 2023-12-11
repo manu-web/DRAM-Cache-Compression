@@ -175,10 +175,20 @@ PolicyManager::init()
 bool
 PolicyManager::recvTimingReq(PacketPtr pkt)
 {
-    //TODO MANU : Need to add it back
-    pkt->bypass_dcache = read_MAPI(pkt->getAddr());
+    //For writes, always go to DRAM cache
+    if(pkt->isRead()){
+
+        pkt->bypass_dcache = read_MAPI(pkt->getAddr());
+
+        bool NormHit = checkHit(pkt, returnTagDC(pkt->getAddr(), pkt->getSize()), returnIndexDC(pkt->getAddr(), pkt->getSize()), 0);
+        bool BaiHit = checkHit(pkt, returnTagDC(pkt->getAddr(), pkt->getSize()), returnBAIDC(pkt->getAddr(), pkt->getSize()), 1);
+        
+        if(NormHit || BaiHit)
+            pkt->bypass_dcache = false;
+
+    }
+
     if (pkt->bypass_dcache) {
-        //TODO MANU - Add predictor
         DPRINTF(PolicyManager, "Sending Req to memory");
         return farReqPort.sendTimingReq(pkt);
     }
@@ -236,7 +246,6 @@ PolicyManager::recvTimingReq(PacketPtr pkt)
     //bool foundInFarMemWrite = false;
 
     if (pkt->isRead()) {
-        //TODO MANU - Add DICE predictor
         //pkt->predCompressible = (curTick()%128 == 0)? true : false;
         pkt->predCompressible = read_LTT(pkt->getAddr());
         pkt->compressed_index =  (pkt->getAddr()%(blockSize*2) / blockSize);
@@ -1461,7 +1470,6 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
                 DPRINTF(PolicyManager, "For Misprediction of Request Addr = %d | Got BAI HIT - Setting latency factor of 2\n", pkt->getAddr());
             }
 
-            // TODO : Need to add back
             if(NormHit || BaiHit)
                 update_MAPI(pkt->getAddr(),true);
             else
@@ -1478,7 +1486,6 @@ PolicyManager::handleRequestorPkt(PacketPtr pkt)
                 DPRINTF(PolicyManager, "For Misprediction of Request Addr = %d | Got Normal HIT - Setting latency factor of 2\n", pkt->getAddr());
             }
 
-            // TODO : Need to add back
             if(NormHit || BaiHit)
                 update_MAPI(pkt->getAddr(),true);
             else
