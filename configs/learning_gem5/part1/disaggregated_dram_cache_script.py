@@ -59,8 +59,8 @@ from common import SimpleOpts
 thispath = os.path.dirname(os.path.realpath(__file__))
 default_binary = os.path.join(
     thispath,
-    "../../../../../",  # Update as per your system
-    "CS752_HW3/spectre/spectre.gcc",
+    "../../../",  # Update as per your system
+    "cs752/testprog/testprog.gcc",
 )
 
 default_binary = "/nobackup/neerajs/gem5_752/spec2006/gcc/gcc_base.x86_64_sse"
@@ -128,6 +128,13 @@ system.mem_ctrl.orb_max_size = "128"
 # CRB is Conflicting Request Buffer, a buffer for serializing the outstanding requests that map to the same cache location.
 system.mem_ctrl.crb_max_size = "32"
 system.mem_ctrl.port = system.membus.mem_side_ports
+
+# Add compressors to Policy Manager
+fpc = FPC()
+system.mem_ctrl.fpc_compressor = fpc
+
+bdi = BDI()
+system.mem_ctrl.bdi_compressor = bdi
 
 system.loc_mem_ctrl = HBMCtrl()
 system.loc_mem_ctrl.dram = HBM_2000_4H_1x64(

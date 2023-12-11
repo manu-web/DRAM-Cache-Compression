@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <time.h>
 
 #define CACHE_SIZE 128 * 1024 * 1024 // Size of the cache in bytes
 #define BLOCK_SIZE 64   // Size of each cache block in bytes
@@ -20,9 +21,11 @@ void empty_function(char c) {
 }
 
 int main(int argc, char *argv[]) {
+  printf("testprog start\n");
+  fflush(stdout);
   // Allocate a large block of memory
   // size_t mem_size = 2*CACHE_SIZE * BLOCK_SIZE;
-  size_t mem_size = CACHE_SIZE;
+  size_t mem_size = 2*CACHE_SIZE;
   char* memory = (char*)malloc(mem_size);
 
   // Write to conflicting addresses in the cache
@@ -49,21 +52,27 @@ int main(int argc, char *argv[]) {
   const int iterations = 110000;
   char* offset_memory = memory + (mem_size / 2);
 
+  srand(time(NULL));
   // Write to each address location in the allocated memory
-  for (int i = 0; i < iterations; i+=4) {
+  for (int i = 0; i < iterations; i++) {
     // Calculate the starting address of the cache block
     char* address = memory + i;
 
     // Write to the address
     // *address = (char)((unsigned long long)address % BLOCK_SIZE);
-    *address = 'E';
-    *(address+1) = 'F';
-    *(address+2) = 'G';
-    *(address+3) = 'H';
+
+    *address = rand() % 256;
+    // *address = 'E';
+    // *(address+1) = 'F';
+    // *(address+2) = 'G';
+    // *(address+3) = 'H';
 
     // Debugging output to show the write
     // DEBUG_PRINT("Wrote '0x%02x' to address %p\n", (unsigned char)*address, (void*)address);
   }
+
+  printf("testprog finished writing EFGH\n");
+  fflush(stdout);
 
   for (int i = 0; i < iterations; i++) {
     // Calculate the starting address of the cache block
@@ -76,6 +85,9 @@ int main(int argc, char *argv[]) {
     // Debugging output to show the write
     // DEBUG_PRINT("Wrote '0x%02x' to address %p\n", (unsigned char)*address, (void*)address);
   }
+
+  printf("testprog finished writing B\n");
+  fflush(stdout);
 
   // Read from each address location in the allocated memory
   for (int i = 0; i < iterations; i++) {
@@ -92,6 +104,9 @@ int main(int argc, char *argv[]) {
     empty_function(byte);
   }
 
+  printf("testprog finished reading EFGH\n");
+  fflush(stdout);
+
   for (int i = 0; i < iterations; i++) {
     // Calculate the starting address of the cache block
     char* address = offset_memory + i;
@@ -106,8 +121,13 @@ int main(int argc, char *argv[]) {
     empty_function(byte);
   }
 
+  printf("testprog finished reading B\n");
+  fflush(stdout);
+
   // Free the allocated memory
   free(memory);
 
+  printf("testprog End\n");
+  fflush(stdout);
   return 0;
 }
