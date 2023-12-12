@@ -2286,23 +2286,33 @@ PolicyManager::isCacheLineCompressible(PacketPtr pkt)
     fpc_compressed_bits = compressed_data->getSizeBits();
     // printf("Compressed bits: %lu\n", fpc_compressed_bits);
 
+    const size_t dice_32_byte_compression_threshold_bits = 32 * 8; // 32 bytes * 8 bits
     const size_t dice_compression_threshold_bits = 36 * 8; // 36 bytes * 8 bits
 
-    // compressible_checks_counter++;
+    polManStats.numCacheLinesCheckedCompressible++;
+    if (bdi_compressed_bits < dice_32_byte_compression_threshold_bits ||
+        fpc_compressed_bits < dice_32_byte_compression_threshold_bits) {
+        polManStats.numCacheLinesCompressed32Bytes++;
+    }
     if (bdi_compressed_bits < dice_compression_threshold_bits ||
         fpc_compressed_bits < dice_compression_threshold_bits) {
-            // printf("CACHE LINE IS COMPRESSIBLE\n");
-            // num_compressible_counter++;
-            // if (compressible_checks_counter % 1000 == 0) {
-            //     printf("Compressed / compressible checks = %lu / %lu\n",
-            //         num_compressible_counter, compressible_checks_counter);
-            // }
-            return true;
+        polManStats.numCacheLinesCompressed36Bytes++;
+        if (bdi_compressed_bits < fpc_compressed_bits) {
+            polManStats.numCacheLinesCompressedByBDI++;
+        }
+        else if (fpc_compressed_bits < bdi_compressed_bits) {
+            polManStats.numCacheLinesCompressedByFPC++;
+        }
+        else {
+            // If they both compress equally, add to both stats.
+            // If we want to only know the cases where one was better then just subtract
+            // the number of equally compressed cache lines.
+            polManStats.numCacheLinesCompressedByBDI++;
+            polManStats.numCacheLinesCompressedByFPC++;
+            polManStats.numCacheLinesCompressedEqually++;
+        }
+        return true;
     }
-    // if (compressible_checks_counter % 1000 == 0) {
-    //     printf("Compressed / compressible checks = %lu / %lu\n",
-    //         num_compressible_counter, compressible_checks_counter);
-    // }
     return false;
 }
 
@@ -2410,6 +2420,29 @@ PolicyManager::PolicyManagerStats::PolicyManagerStats(PolicyManager &_polMan)
                 statistics::units::Tick, statistics::units::Count>::get(),
              "Accuracy of the Bypass Dcache predictor"),
 
+    ADD_STAT(numCacheLinesCheckedCompressible,
+             "Number of cache lines checked for compressibility"),
+    ADD_STAT(numCacheLinesCompressed32Bytes,
+             "Number of cache lines compressible to <=32 bytes"),
+    ADD_STAT(numCacheLinesCompressed36Bytes,
+             "Number of cache lines compressible to <=36 bytes"),
+    ADD_STAT(numCacheLinesCompressedByBDI,
+             "Number of cache lines compressible to <=36 bytes by BDI"),
+    ADD_STAT(numCacheLinesCompressedByFPC,
+             "Number of cache lines compressible to <=36 bytes by FPC"),
+    ADD_STAT(numCacheLinesCompressedEqually,
+             "Number of cache lines compressible to <=36 bytes and compressed to same size by both BDI and FPC"),
+    ADD_STAT(percentageCacheLinesCompressed32BytesOrLess,
+             "Percentage of cache lines compressible to <=32 bytes"),
+    ADD_STAT(percentageCacheLinesCompressed36BytesOrLess,
+             "Percentage of cache lines compressible to <=36 bytes"),
+    ADD_STAT(percentageCacheLinesCompressedByBDI,
+             "Percentage of cache lines compressible to <=36 bytes by BDI"),
+    ADD_STAT(percentageCacheLinesCompressedByFPC,   
+             "Percentage of cache lines compressible to <=36 bytes by FPC"),
+    ADD_STAT(percentageCacheLinesCompressedEqually, 
+             "Percentage of cache lines compressible to <=36 bytes and compressed to same size by both BDI and FPC"),
+    
     ADD_STAT(avgORBLen, statistics::units::Rate<
                 statistics::units::Count, statistics::units::Tick>::get(),
              "Average ORB length"),
@@ -2549,6 +2582,12 @@ PolicyManager::PolicyManagerStats::regStats()
     avgGap.precision(2);
     accuracyOfDicePredictor.precision(8);
     accuracyOfBypassDcachePredictor.precision(8);
+    
+    percentageCacheLinesCompressed32BytesOrLess.precision(8);
+    percentageCacheLinesCompressed36BytesOrLess.precision(8);
+    percentageCacheLinesCompressedByFPC.precision(8);
+    percentageCacheLinesCompressedByBDI.precision(8);
+    percentageCacheLinesCompressedEqually.precision(8);
 
     // Formula stats
     avgRdBWSys = (bytesReadSys) / simSeconds;
@@ -2559,6 +2598,11 @@ PolicyManager::PolicyManagerStats::regStats()
     accuracyOfDicePredictor = numOfTimesDicePredictorCorrect/(numOfTimesDicePredictorCorrect + numOfTimesDicePredictorIncorrect);
     accuracyOfBypassDcachePredictor = numOfTimesBypassDcachePredictorCorrect/(numOfTimesBypassDcachePredictorCorrect + numOfTimesBypassDcachePredictorIncorrect);
 
+    percentageCacheLinesCompressed32BytesOrLess = numCacheLinesCompressed32Bytes/numCacheLinesCheckedCompressible;
+    percentageCacheLinesCompressed36BytesOrLess = numCacheLinesCompressed36Bytes/numCacheLinesCheckedCompressible;
+    percentageCacheLinesCompressedByFPC = numCacheLinesCompressedByFPC/numCacheLinesCheckedCompressible;
+    percentageCacheLinesCompressedByBDI = numCacheLinesCompressedByBDI/numCacheLinesCheckedCompressible;
+    percentageCacheLinesCompressedEqually = numCacheLinesCompressedEqually/numCacheLinesCheckedCompressible;
 }
 
 Port &

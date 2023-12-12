@@ -405,9 +405,6 @@ class PolicyManager : public AbstractMemory
     void update_MAPI_count(Addr request_addr, bool is_dram_cache_hit); // Updates counter value for bypass Dcache prediction
     bool isCacheLineCompressible(PacketPtr pkt);
 
-    // size_t compressible_checks_counter = 0;
-    // size_t num_compressible_counter = 0;
-
     // port management
     void locMemRecvReqRetry();
     void farMemRecvReqRetry();
@@ -515,6 +512,25 @@ class PolicyManager : public AbstractMemory
       Stats::Scalar numOfTimesBypassDcachePredictorIncorrect;
       Stats::Formula accuracyOfBypassDcachePredictor;
 
+      // DICE Compression Stats
+      // We prefer the 36 byte threshold for our data but include stats for the 32
+      // bytes threshold as well since it is mentioned in the paper and worth
+      // including.
+      // If they both compress equally, add to both stats.
+      // If we want to only know the cases where one was better then just subtract
+      // the number of equally compressed cache lines.
+      Stats::Scalar numCacheLinesCompressed32Bytes;
+      Stats::Scalar numCacheLinesCompressed36Bytes;
+      Stats::Scalar numCacheLinesCompressedByFPC; // FPC <=36 bytes
+      Stats::Scalar numCacheLinesCompressedByBDI; // BDI <=36 bytes
+      Stats::Scalar numCacheLinesCompressedEqually; // FPC == BDI && <=36 bytes
+      Stats::Scalar numCacheLinesCheckedCompressible;
+
+      Stats::Formula percentageCacheLinesCompressed32BytesOrLess; // <=32 bytes
+      Stats::Formula percentageCacheLinesCompressed36BytesOrLess; // <=36 bytes
+      Stats::Formula percentageCacheLinesCompressedByFPC; // FPC <=36 bytes
+      Stats::Formula percentageCacheLinesCompressedByBDI; // BDI <=36 bytes
+      Stats::Formula percentageCacheLinesCompressedEqually; // FPC == BDI && <=36 bytes
     };
 
     PolicyManagerStats polManStats;
