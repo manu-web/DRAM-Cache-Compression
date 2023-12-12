@@ -228,6 +228,9 @@ PolicyManager::init()
 bool
 PolicyManager::recvTimingReq(PacketPtr pkt)
 {
+    
+    DPRINTF(PolicyManager, "recvTimingReq: frontendLatency = %d backendLatency = %d\n",frontendLatency, backendLatency);
+
     //For writes, always go to DRAM cache
     if(pkt->isRead()){
 
@@ -869,7 +872,7 @@ PolicyManager::setNextState(reqBufferEntry* orbEntry)
                                              orbEntry->owPkt->isRead());
 
             accessAndRespond(orbEntry->owPkt,
-                             frontendLatency + backendLatency + backendLatency);
+                             frontendLatency + backendLatency*5);
 
             ORB.at(copyOwPkt->getAddr()) = new reqBufferEntry(
                                                 orbEntry->validEntry,
@@ -988,7 +991,7 @@ PolicyManager::setNextState(reqBufferEntry* orbEntry)
                                              orbEntry->owPkt->isRead());
 
             accessAndRespond(orbEntry->owPkt,
-                             frontendLatency + backendLatency + backendLatency);
+                             frontendLatency + backendLatency*5);
 
             ORB.at(copyOwPkt->getAddr()) = new reqBufferEntry(
                                                 orbEntry->validEntry,
@@ -1094,7 +1097,7 @@ PolicyManager::setNextState(reqBufferEntry* orbEntry)
                                              orbEntry->owPkt->isRead());
 
             accessAndRespond(orbEntry->owPkt,
-                             frontendLatency + backendLatency + backendLatency);
+                             frontendLatency + backendLatency*5);
 
             ORB.at(copyOwPkt->getAddr()) = new reqBufferEntry(
                                                 orbEntry->validEntry,
