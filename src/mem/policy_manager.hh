@@ -485,7 +485,11 @@ class PolicyManager : public AbstractMemory
       Stats::Scalar totTimeInFarRead;
 
       Stats::Scalar numTotHits;
+      Stats::Scalar numTotHitsBAI;
+      Stats::Scalar numTotHitsTSI;
       Stats::Scalar numTotMisses;
+      Stats::Scalar numTotMissesBAI;
+      Stats::Scalar numTotMissesTSI;
       Stats::Scalar numColdMisses;
       Stats::Scalar numHotMisses;
       Stats::Scalar numRdMissClean;
@@ -505,11 +509,15 @@ class PolicyManager : public AbstractMemory
       //DICE compressibility predictor related stats
       Stats::Scalar numOfTimesDicePredictorCorrect;
       Stats::Scalar numOfTimesDicePredictorIncorrect;
+      Stats::Scalar numOfTimesDicePredictorIncorrect_01;
+      Stats::Scalar numOfTimesDicePredictorIncorrect_10;
       Stats::Formula accuracyOfDicePredictor;
 
       //bypass DRAM Cache predictor related stats
       Stats::Scalar numOfTimesBypassDcachePredictorCorrect;
       Stats::Scalar numOfTimesBypassDcachePredictorIncorrect;
+      Stats::Scalar numOfTimesBypassDcachePredictorIncorrect_01;
+      Stats::Scalar numOfTimesBypassDcachePredictorIncorrect_10;
       Stats::Formula accuracyOfBypassDcachePredictor;
 
       // DICE Compression Stats

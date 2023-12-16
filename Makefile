@@ -1,6 +1,7 @@
 TOPDIR = $(PWD)
 
-OUTDIR = $(TOPDIR)/out_dir
+OUTDIR = $(regress_out_dir)
+#OUTDIR = $(TOPDIR)/out_dir_mcf_simpoint_test
 BENCHMARKS = $(TOPDIR)/benchmarks
 
 SIMPDIR = $(TOPDIR)/SimPoint.3.2
@@ -63,7 +64,7 @@ else
 	endif
 endif
 
-COMMON_CONFIG_ARGS += --cpu-type=$(CPU_TYPE) $(L1CACHE) $(L2CACHE) --mem-size '8GiB' --maxinsts=$(MAXINSTS) --warmup_insts=$(WARMUP) --dram-cache=$(DRAM_CACHE)
+COMMON_CONFIG_ARGS += --cpu-type=$(CPU_TYPE) $(L1CACHE) $(L2CACHE) --mem-size '8GiB' --maxinsts=$(MAXINSTS) --warmup_insts=$(WARMUP) --dram-cache=$(DRAM_CACHE) --cpu-clock='8GHz'
 
 simulate:
 	build/X86/gem5.opt $(DBG) --outdir=$(DUMPDIR) configs/example/dram_cache.py $(COMMON_CONFIG_ARGS) --benchmark $(BENCH) --benchmark-stdout $(DUMPDIR)/$(BENCH).out --benchmark-stderr $(DUMPDIR)/$(BENCH).err $(SIMP_FLAGS) >| $(OUTDIR)/$(BENCH)_dc$(DC)_sim.out

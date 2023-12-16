@@ -872,7 +872,7 @@ PolicyManager::setNextState(reqBufferEntry* orbEntry)
                                              orbEntry->owPkt->isRead());
 
             accessAndRespond(orbEntry->owPkt,
-                             frontendLatency + backendLatency*5);
+                             frontendLatency + backendLatency*2);
 
             ORB.at(copyOwPkt->getAddr()) = new reqBufferEntry(
                                                 orbEntry->validEntry,
@@ -991,7 +991,7 @@ PolicyManager::setNextState(reqBufferEntry* orbEntry)
                                              orbEntry->owPkt->isRead());
 
             accessAndRespond(orbEntry->owPkt,
-                             frontendLatency + backendLatency*5);
+                             frontendLatency + backendLatency*2);
 
             ORB.at(copyOwPkt->getAddr()) = new reqBufferEntry(
                                                 orbEntry->validEntry,
@@ -1097,7 +1097,7 @@ PolicyManager::setNextState(reqBufferEntry* orbEntry)
                                              orbEntry->owPkt->isRead());
 
             accessAndRespond(orbEntry->owPkt,
-                             frontendLatency + backendLatency*5);
+                             frontendLatency + backendLatency*2);
 
             ORB.at(copyOwPkt->getAddr()) = new reqBufferEntry(
                                                 orbEntry->validEntry,
@@ -1829,6 +1829,9 @@ PolicyManager::checkHitOrMiss(reqBufferEntry* orbEntry, bool compressed)
 
         polManStats.numTotHits++;
 
+        if (compressed) polManStats.numTotHitsBAI++;
+        else polManStats.numTotHitsTSI++;
+
         if (orbEntry->owPkt->isRead()) {
             polManStats.numRdHit++;
             if (currDirty) {
@@ -1850,6 +1853,9 @@ PolicyManager::checkHitOrMiss(reqBufferEntry* orbEntry, bool compressed)
         //update_MAPI(orbEntry->owPkt->getAddr(),false);
 
         polManStats.numTotMisses++;
+
+        if (compressed) polManStats.numTotMissesBAI++;
+        else polManStats.numTotMissesTSI++;
 
         if (currValid) {
             polManStats.numHotMisses++;
@@ -2145,8 +2151,11 @@ void PolicyManager::update_LTT(Addr request_addr, bool is_read_data_compressible
 
     if(predicted_compressible == is_read_data_compressible)
         polManStats.numOfTimesDicePredictorCorrect++;
-    else
+    else {
         polManStats.numOfTimesDicePredictorIncorrect++;
+        if (predicted_compressible) polManStats.numOfTimesDicePredictorIncorrect_10++;
+        else polManStats.numOfTimesDicePredictorIncorrect_01++;
+    }
 
     last_time_table[table_idx] = is_read_data_compressible;
     DPRINTF(PolicyManager, "update_LTT: Addr 0x%x, Page no. 0x%0x, table idx %0d, predicted_compressible %0d, actual_compressible %0d \n",request_addr,page_number,table_idx,predicted_compressible,is_read_data_compressible);
@@ -2198,8 +2207,11 @@ void PolicyManager::update_MAPI(Addr request_addr, bool is_dram_cache_hit=false)
 
     if(predicted_bypass_dcache != is_dram_cache_hit)
         polManStats.numOfTimesBypassDcachePredictorCorrect++;
-    else
+    else {
         polManStats.numOfTimesBypassDcachePredictorIncorrect++;
+        if (predicted_bypass_dcache) polManStats.numOfTimesBypassDcachePredictorIncorrect_01++;
+        else polManStats.numOfTimesBypassDcachePredictorIncorrect_10++;
+    }
 
     update_MAPI_count(request_addr,is_dram_cache_hit);
     DPRINTF(PolicyManager, "update_MAPI: Addr 0x%x, predicted_bypass_dcache %0d, mapi_table_index %0d, is_dram_cache_hit %0d \n",request_addr,predicted_bypass_dcache,mapi_table_index,is_dram_cache_hit);
@@ -2289,30 +2301,37 @@ PolicyManager::isCacheLineCompressible(PacketPtr pkt)
     const size_t dice_32_byte_compression_threshold_bits = 32 * 8; // 32 bytes * 8 bits
     const size_t dice_compression_threshold_bits = 36 * 8; // 36 bytes * 8 bits
 
-    polManStats.numCacheLinesCheckedCompressible++;
-    if (bdi_compressed_bits < dice_32_byte_compression_threshold_bits ||
-        fpc_compressed_bits < dice_32_byte_compression_threshold_bits) {
-        polManStats.numCacheLinesCompressed32Bytes++;
+    if (pkt->isWrite()) {
+      polManStats.numCacheLinesCheckedCompressible++;
+      if (bdi_compressed_bits < dice_32_byte_compression_threshold_bits ||
+          fpc_compressed_bits < dice_32_byte_compression_threshold_bits) {
+          polManStats.numCacheLinesCompressed32Bytes++;
+      }
+      if (bdi_compressed_bits < dice_compression_threshold_bits ||
+          fpc_compressed_bits < dice_compression_threshold_bits) {
+          polManStats.numCacheLinesCompressed36Bytes++;
+          if (bdi_compressed_bits < fpc_compressed_bits) {
+              polManStats.numCacheLinesCompressedByBDI++;
+          }
+          else if (fpc_compressed_bits < bdi_compressed_bits) {
+              polManStats.numCacheLinesCompressedByFPC++;
+          }
+          else {
+              // If they both compress equally, add to both stats.
+              // If we want to only know the cases where one was better then just subtract
+              // the number of equally compressed cache lines.
+              polManStats.numCacheLinesCompressedByBDI++;
+              polManStats.numCacheLinesCompressedByFPC++;
+              polManStats.numCacheLinesCompressedEqually++;
+          }
+      }
     }
+
     if (bdi_compressed_bits < dice_compression_threshold_bits ||
         fpc_compressed_bits < dice_compression_threshold_bits) {
-        polManStats.numCacheLinesCompressed36Bytes++;
-        if (bdi_compressed_bits < fpc_compressed_bits) {
-            polManStats.numCacheLinesCompressedByBDI++;
-        }
-        else if (fpc_compressed_bits < bdi_compressed_bits) {
-            polManStats.numCacheLinesCompressedByFPC++;
-        }
-        else {
-            // If they both compress equally, add to both stats.
-            // If we want to only know the cases where one was better then just subtract
-            // the number of equally compressed cache lines.
-            polManStats.numCacheLinesCompressedByBDI++;
-            polManStats.numCacheLinesCompressedByFPC++;
-            polManStats.numCacheLinesCompressedEqually++;
-        }
-        return true;
+          return true;
     }
+
     return false;
 }
 
@@ -2406,6 +2425,12 @@ PolicyManager::PolicyManagerStats::PolicyManagerStats(PolicyManager &_polMan)
     ADD_STAT(numOfTimesDicePredictorIncorrect, statistics::units::Tick::get(),
              "Number of incorrect predictions by the DICE predictor"),
 
+    ADD_STAT(numOfTimesDicePredictorIncorrect_01, statistics::units::Tick::get(),
+             "Number of incorrect predictions by the DICE predictor - predicted compressible, actual not compressible"),
+
+    ADD_STAT(numOfTimesDicePredictorIncorrect_10, statistics::units::Tick::get(),
+             "Number of incorrect predictions by the DICE predictor - predicted not compressible, actual compressible"),
+
     ADD_STAT(accuracyOfDicePredictor, statistics::units::Rate<
                 statistics::units::Tick, statistics::units::Count>::get(),
              "Accuracy of the DICE predictor"),
@@ -2415,6 +2440,12 @@ PolicyManager::PolicyManagerStats::PolicyManagerStats(PolicyManager &_polMan)
 
     ADD_STAT(numOfTimesBypassDcachePredictorIncorrect, statistics::units::Tick::get(),
              "Number of incorrect predictions by the bypass dcache predictor"),          
+    
+    ADD_STAT(numOfTimesBypassDcachePredictorIncorrect_01, statistics::units::Tick::get(),
+             "Number of incorrect predictions by the bypass dcache predictor - predicted miss, actual hit"),          
+    
+    ADD_STAT(numOfTimesBypassDcachePredictorIncorrect_10, statistics::units::Tick::get(),
+             "Number of incorrect predictions by the bypass dcache predictor - predicted hit, actual miss"),          
     
     ADD_STAT(accuracyOfBypassDcachePredictor, statistics::units::Rate<
                 statistics::units::Tick, statistics::units::Count>::get(),
@@ -2523,7 +2554,15 @@ PolicyManager::PolicyManagerStats::PolicyManagerStats(PolicyManager &_polMan)
 
     ADD_STAT(numTotHits,
             "stat"),
+    ADD_STAT(numTotHitsBAI,
+            "stat"),
+    ADD_STAT(numTotHitsTSI,
+            "stat"),
     ADD_STAT(numTotMisses,
+            "stat"),
+    ADD_STAT(numTotMissesBAI,
+            "stat"),
+    ADD_STAT(numTotMissesTSI,
             "stat"),
     ADD_STAT(numColdMisses,
             "stat"),

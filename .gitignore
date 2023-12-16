@@ -37,4 +37,4 @@ configs/dram/lowp_sweep.cfg
 *.tar.gz
 *.tz
 benchmarks
-out_dir
+out_dir*
